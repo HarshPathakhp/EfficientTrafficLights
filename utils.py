@@ -22,14 +22,20 @@ class PriorityBuffer:
         """
 
         num_samples = len(datalist)
+        use_cuda = torch.cuda_is_available()
 
         td_error = []
         for i in range(num_samples):
 
-        	cur_state = torch.tensor(self.datalist[i][0]).float().cuda().unsqueeze(0)
+        	cur_state = torch.tensor(self.datalist[i][0]).float().unsqueeze(0)
         	action = self.datalist[i][1]
-        	next_state = torch.tensor(self.datalist[i][2]).float().cuda().unsqueeze(0)
-        	reward = torch.tensor([self.datalist[i][3]]).cuda()
+        	next_state = torch.tensor(self.datalist[i][2]).float().unsqueeze(0)
+        	reward = torch.tensor([self.datalist[i][3]])
+
+        	if(use_cuda):
+        		cur_state = cur_state.cuda()
+        		next_state = next_state.cuda()
+        		reward = reward.cuda()
 
         	best_action = torch.argmax(primary_net(next_state).view(-1)).item()
         	next_state_estimate = target_net(next_state).view(-1)[best_action]
