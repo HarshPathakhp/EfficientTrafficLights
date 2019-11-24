@@ -31,10 +31,10 @@ class PriorityBuffer:
         	next_state = torch.tensor(self.datalist[i][2]).float().cuda().unsqueeze(0)
         	reward = torch.tensor([self.datalist[i][3]]).cuda()
 
-        	best_action = torch.argmax(primary_net(next_state)).item()
-        	next_state_estimate = target_net(next_state)[best_action]
+        	best_action = torch.argmax(primary_net(next_state).view(-1)).item()
+        	next_state_estimate = target_net(next_state).view(-1)[best_action]
         	bootstrapped_output = reward + self.discount_factor * next_state_estimate 
-        	target_output = target_net(cur_state)[action]
+        	target_output = target_net(cur_state).view(-1)[action]
         	
         	error = torch.abs(bootstrapped_output - target_output).item()	
         	td_error.append([error, i])	
@@ -74,3 +74,7 @@ class EpsilonPolicy:
             action = (argmax)
         self.eps = max(self.min_epsilon, self.eps * self.decay)
         return action 
+
+if(__name__ == "__main__"):
+
+	pass
