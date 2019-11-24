@@ -3,10 +3,12 @@ import torch
 import torch.nn as nn
 
 class PriorityBuffer:
-    def __init__(self, max_size = 50000, batch_size = 16):
+    def __init__(self, max_size = 50000, batch_size = 16, discount_factor = 0.99):
         self.datalist = []
         self.max_size = max_size
         self.batch_size = batch_size
+        self.discount_factor = discount_factor
+
     def add(self, sample):
         """
         add <st,at,st+1,rt+1> to list
@@ -24,9 +26,17 @@ class PriorityBuffer:
         td_error = []
         for i in range(num_samples):
 
-        	primary_output = primary_net(torch.tensor(self.datalist[i][0]).float().cuda())
-        	target_output = target_net(torch.tensor(self.datalist[i][0]).float().cuda())
-        	error = torch.norm(primary_output - target_output, 1).item()	
+        	cur_state = torch.tensor(self.datalist[i][0]).float().cuda().unsqueeze(0)
+        	action = self.datalist[i][1]
+        	next_state = torch.tensor(self.datalist[i][2]).float().cuda().unsqueeze(0)
+        	reward = torch.tensor([self.datalist[i][3]])
+
+        	best_action = torch.argmax(primary_net(next_state)).item()
+        	next_state_estimate = target_net(next_state)[best_action]
+        	bootstrapped_output = reward + self.discount_factor * next_state_estimate 
+        	target_output = target_net(cur_state)[action]
+        	
+        	error = torch.abs(bootstrapped_output - target_output).item()	
         	td_error.append([error, i])	
 
         td_error.sort()
@@ -37,7 +47,7 @@ class PriorityBuffer:
         	distribution[td_error[i][1]] = 1 / (i + 1)
 
         distribution = distribution / distribution.sum()
-        indices = np.random.choice(num_samples, replace = False, p = distribution)
+        indices = np.random.choice(num_samples, size = (self.batch_size) replace = False, p = distribution)
 
         return self.datalist[indices]
         
