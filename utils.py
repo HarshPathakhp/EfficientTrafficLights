@@ -29,7 +29,7 @@ class PriorityBuffer:
         	cur_state = torch.tensor(self.datalist[i][0]).float().cuda().unsqueeze(0)
         	action = self.datalist[i][1]
         	next_state = torch.tensor(self.datalist[i][2]).float().cuda().unsqueeze(0)
-        	reward = torch.tensor([self.datalist[i][3]])
+        	reward = torch.tensor([self.datalist[i][3]]).cuda()
 
         	best_action = torch.argmax(primary_net(next_state)).item()
         	next_state_estimate = target_net(next_state)[best_action]
