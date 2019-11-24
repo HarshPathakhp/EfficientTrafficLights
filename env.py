@@ -54,6 +54,7 @@ class SumoIntersection:
         self.vehicle_length = None
         self.existing_waiting_time = {}
         self.num_vehicles = 0
+        self.time = 0
         traci.close()
     
     def reset(self):
@@ -71,10 +72,12 @@ class SumoIntersection:
             self._sumo_step()
         self.existing_waiting_time = {}
         self.num_vehicles = 0
+        self.time = 0
         return self._compute_observation()
 
     def _sumo_step(self):
         traci.simulationStep()
+        self.time += 1
     
     def _compute_observation(self):
         controlled_lanes = self.lanes
@@ -100,6 +103,9 @@ class SumoIntersection:
         parameters - phase_duration : list of length 4 for each green phase denoting green light to run for
         """
         sum = 0
+        for i in phase_durations:
+            if(not (i >= 0 and i <= 60)):
+                return self._compute_observation(), (int)(-1e6)
         for i in phase_durations:
             sum += i + self.yellow_time
         traci.trafficlight.setPhase(self.ts_ids[0], 0)
@@ -130,7 +136,7 @@ class SumoIntersection:
         for veh in final_vehicle_list:
             self.existing_waiting_time[veh] = waiting_time_map[veh]
         reward = -1 * wait_time
-        return self._compute_observation(), reward/sum
+        return self._compute_observation(), reward
     
     def util_update_waits(self, to_update_wait_map):
         cur_vehicles = traci.vehicle.getIDList()
@@ -138,38 +144,38 @@ class SumoIntersection:
             to_update_wait_map[veh] = traci.vehicle.getAccumulatedWaitingTime(veh)
         return to_update_wait_map
     
-si = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
-                                        traci.trafficlight.Phase(32, "GGrrrrGGrrrr"),  
-                                        traci.trafficlight.Phase(2, "yyrrrryyrrrr"),
-                                        traci.trafficlight.Phase(32, "rrGrrrrrGrrr"),   
-                                        traci.trafficlight.Phase(2, "rryrrrrryrrr"),
-                                        traci.trafficlight.Phase(32, "rrrGGrrrrGGr"),   
-                                        traci.trafficlight.Phase(2, "rrryyrrrryyr"),
-                                        traci.trafficlight.Phase(32, "rrrrrGrrrrrG"), 
-                                        traci.trafficlight.Phase(2, "rrrrryrrrrry")
-                                        ], use_gui=False)
+if __name__ == "__main__":
+    pass
+    #si = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
+    #                                    traci.trafficlight.Phase(32, "GGrrrrGGrrrr"),  
+    #                                    traci.trafficlight.Phase(2, "yyrrrryyrrrr"),
+    #                                    traci.trafficlight.Phase(32, "rrGrrrrrGrrr"),   
+    ##                                    traci.trafficlight.Phase(2, "rryrrrrryrrr"),
+    #                                   traci.trafficlight.Phase(32, "rrrGGrrrrGGr"),   
+    #                                    traci.trafficlight.Phase(2, "rrryyrrrryyr"),
+     #                                   traci.trafficlight.Phase(32, "rrrrrGrrrrrG"), 
+    #                                    traci.trafficlight.Phase(2, "rrrrryrrrrry")
+    #                                    ], use_gui=False)
 
-
-
-#HOW TO RUN
-state_1 = si.reset()
-r = []
-for i in range(20):
-    state_2, r1 = si.take_action([30,30,30,30])
-    r.append(r1)
-print(r)
-traci.close()
-#state_2 = si.reset()
-#for i in range(100):
-#    for j in range(100):
-#        x = 'H' if state_2[i,j,0] == 1 else '-'
-#        print(x, end = " ")
-#    print()
-#print("\n"*3)
-#for i in range(100):
-#    for j in range(100):
-#        x = 'H' if state_3[i,j,0] == 1 else '-'
-#        print(x, end = " ")
-#    print()
-#
-#traci.close()
+    #HOW TO RUN
+    #state_1 = si.reset()
+    #r = []
+    #for i in range(20):
+    #    state_2, r1 = si.take_action([30,30,30,30])
+    #    r.append(r1)
+    #print(r)
+    #traci.close()
+    #state_2 = si.reset()
+    #for i in range(100):
+    #    for j in range(100):
+    #        x = 'H' if state_2[i,j,0] == 1 else '-'
+    #        print(x, end = " ")
+    #    print()
+    #print("\n"*3)
+    #for i in range(100):
+    #    for j in range(100):
+    #        x = 'H' if state_3[i,j,0] == 1 else '-'
+    #        print(x, end = " ")
+    #    print()
+    #
+    #traci.close()
