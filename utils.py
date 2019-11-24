@@ -47,7 +47,7 @@ class PriorityBuffer:
         	distribution[td_error[i][1]] = 1 / (i + 1)
 
         distribution = distribution / distribution.sum()
-        indices = np.random.choice(num_samples, size = (self.batch_size) replace = False, p = distribution)
+        indices = np.random.choice(num_samples, size = (self.batch_size), replace = False, p = distribution)
 
         return self.datalist[indices]
         
