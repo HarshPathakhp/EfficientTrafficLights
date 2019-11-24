@@ -1,4 +1,7 @@
 import numpy as np
+import torch
+import torch.nn as nn
+
 class PriorityBuffer:
     def __init__(self, max_size = 50000, batch_size = 16):
         self.datalist = []
@@ -15,6 +18,28 @@ class PriorityBuffer:
         """
         samples <batch_size> elements from minibatch
         """
+
+        num_samples = len(datalist)
+
+        td_error = []
+        for i in range(num_samples):
+
+        	primary_output = primary_net(torch.tensor(self.datalist[i][0]).float().cuda())
+        	target_output = target_net(torch.tensor(self.datalist[i][0]).float().cuda())
+        	error = torch.norm(primary_output - target_output, 1).item()	
+        	td_error.append([error, i])	
+
+        td_error.sort()
+        td_error.reverse()
+        distribution = np.zeros(len(self.datalist)).astype(float)
+        
+        for i in range(num_samples):
+        	distribution[td_error[i][1]] = 1 / (i + 1)
+
+        distribution = distribution / distribution.sum()
+        indices = np.random.choice(num_samples, replace = False, p = distribution)
+
+        return self.datalist[indices]
         
     def length(self):
         return len(self.datalist)
