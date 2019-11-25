@@ -11,7 +11,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-STOP_TIME = 1000
+STOP_TIME = 99800
 START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
