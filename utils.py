@@ -1,14 +1,14 @@
 import numpy as np
 import torch
 import torch.nn as nn
-
+import math 
 class PriorityBuffer:
-    def __init__(self, max_size = 50000, batch_size = 16, discount_factor = 0.99):
+    def __init__(self, max_size = 50000, batch_size = 16, discount_factor = 0.99, use_cuda = False):
         self.datalist = []
         self.max_size = max_size
         self.batch_size = batch_size
         self.discount_factor = discount_factor
-
+        self.use_cuda = use_cuda
     def add(self, sample):
         """
         add <st,at,st+1,rt+1> to list
@@ -21,8 +21,8 @@ class PriorityBuffer:
         samples <batch_size> elements from minibatch
         """
 
-        num_samples = len(datalist)
-        use_cuda = torch.cuda_is_available()
+        num_samples = len(self.datalist)
+        use_cuda = self.use_cuda
 
         td_error = []
         for i in range(num_samples):
@@ -32,7 +32,7 @@ class PriorityBuffer:
         	next_state = torch.tensor(self.datalist[i][2]).float().unsqueeze(0)
         	reward = torch.tensor([self.datalist[i][3]])
 
-        	if(use_cuda):
+        	if(self.use_cuda):
         		cur_state = cur_state.cuda()
         		next_state = next_state.cuda()
         		reward = reward.cuda()
@@ -54,9 +54,10 @@ class PriorityBuffer:
 
         distribution = distribution / distribution.sum()
         indices = np.random.choice(num_samples, size = (self.batch_size), replace = False, p = distribution)
-
-        return self.datalist[indices]
-        
+        ret = []
+        for i in indices:
+            ret.append(self.datalist[i])
+        return ret
     def length(self):
         return len(self.datalist)
 
@@ -64,7 +65,7 @@ class PriorityBuffer:
 
 
 class EpsilonPolicy:
-    def __init__(self, start_eps = 0.3, decay = 0.99, min_epsilon = 0.05):
+    def __init__(self, start_eps = 0.3, decay = 0.0001, min_epsilon = 0.05):
         self.eps = start_eps
         self.decay = decay
         self.min_epsilon = min_epsilon
@@ -78,7 +79,7 @@ class EpsilonPolicy:
         else:
             argmax = np.argmax(qvalues)
             action = (argmax)
-        self.eps = max(self.min_epsilon, self.eps * self.decay)
+        self.eps = max(self.min_epsilon, self.eps * math.exp(-1 * self.decay))
         return action 
 
 if(__name__ == "__main__"):

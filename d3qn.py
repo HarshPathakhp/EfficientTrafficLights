@@ -8,6 +8,9 @@ import traci
 from utils import PriorityBuffer
 from utils import EpsilonPolicy
 import torch
+import torch.optim as optim
+import torch.nn as nn
+import numpy as np
 STOP_TIME = 99800
 START_GREEN = 10
 YELLOW = 3
@@ -27,7 +30,7 @@ BUFFER_SIZE = 50000
                 <t1,t2,t3,t4+5> 8
 """
 class D3qn:
-    def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01):
+    def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
         self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
                                 traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
                                 traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -41,16 +44,21 @@ class D3qn:
 
         self.primary_model = DuelCNN(num_actions = 9)
         self.target_model = DuelCNN(num_actions = 9)
-        self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
-        self.num_eps = num_episodes
         self.use_cuda = use_cuda
+        self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE, use_cuda = self.use_cuda)
+        self.num_eps = num_episodes
+        self.discount_factor = discount_factor
         self.epsilon_policy = EpsilonPolicy()
         self.alpha = alpha
         if(self.use_cuda):
             self.primary_model.cuda()
             self.target_model.cuda()
+        self.criterion = nn.MSELoss()
+        self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-4)
+        self.writer = open("3dqn_status.log", "w")
+        self.episode_writer = open("3dqn_episode.log", "w")
     def get_phase_durations(self, action_id, current_duration):
-        ret_phases = current_duration
+        ret_phases = [i for i in current_duration]
         if(action_id == 1):
             ret_phases[0] -= 5
         elif(action_id == 2):
@@ -68,25 +76,85 @@ class D3qn:
         elif action_id == 8:
             ret_phases[3] += 5
         return ret_phases
+    def update_targetNet(self):
+        dict_primary = {}
+        for name, param in self.primary_model.named_parameters():
+            if param.requires_grad:
+                dict_primary[name] = param
+        with torch.no_grad():
+            for name, param in self.target_model.named_parameters():
+                param.copy_((1 - self.alpha) * param.data + (self.alpha) * dict_primary[name].data)
     def train(self):
         total_steps = 0
         for eps in range(self.num_eps):
             cur_state = self.env.reset()
             cur_action_phase = [START_GREEN for i in range(4)]
             while(self.env.time <= STOP_TIME):
+                #self.writer.write(str(self.replaybuffer.length()) + " " + str(total_steps) + "\n")
                 total_steps += 1
-                cur_state_tensor = torch.from_numpy(cur_state).float()
+                cur_state_tensor = torch.from_numpy(cur_state).float().unsqueeze(0)
                 if(self.use_cuda):
                     cur_state_tensor = cur_state_tensor.cuda()
                 qvalues = self.primary_model(cur_state_tensor)
-                action_id = self.epsilon_policy.select(qvalues, NUM_ACTIONS)
+                action_id = self.epsilon_policy.select(qvalues[0].detach().cpu().numpy(), NUM_ACTIONS)
                 new_phases = self.get_phase_durations(action_id, cur_action_phase)
+                #self.writer.write(str(new_phases) + "\n")
                 new_state, reward = self.env.take_action(new_phases)
                 self.replaybuffer.add((cur_state, action_id, new_state, reward))
                 cur_state = new_state
+                cur_action_phase = new_phases
                 if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
+                    self.primary_model.eval()
+                    self.target_model.eval()
                     samples = self.replaybuffer.sample(self.primary_model, self.target_model)
-                    
+                    self.primary_model.train()
+                    self.target_model.train()
+                    batch_stepreward = [s[3] for s in samples]
+                    batch_states_from = [s[0] for s in samples]
+                    batch_states_to = [s[2] for s in samples]
+                    batch_actions = [s[1] for s in samples]
+                    batch_states_from = np.array(batch_states_from)
+                    batch_states_to = np.array(batch_states_to)
+                    batch_stepreward = np.array(batch_stepreward)
+                    batch_actions = np.array(batch_actions)
+                    self.optimizer.zero_grad()
+                    batch_states_from = torch.from_numpy(batch_states_from).float()
+                    batch_states_to = torch.from_numpy(batch_states_to).float()
+                    batch_stepreward = torch.from_numpy(batch_stepreward).float()
+                    batch_actions = torch.from_numpy(batch_actions).float()
+                    if(self.use_cuda):
+                        batch_states_from = batch_states_from.cuda()
+                        batch_states_to = batch_states_to.cuda()
+                        batch_stepreward = batch_stepreward.cuda()
+                        batch_actions = batch_actions.cuda()
+                    q_theta = self.primary_model(batch_states_from)
+                    q_theta_prime = self.target_model(batch_states_to)
+                    _,argmax_actions = torch.max(q_theta, 1)
+                    argmax_actions = argmax_actions.long()
+                    qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
+                    qprime_vals = qprime_vals.view(-1)
+                    qtarget = self.discount_factor * qprime_vals + batch_stepreward
+                    batch_actions = batch_actions.long()
+                    q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
+                    qtarget = qtarget.view(-1,1)
+                    tdloss = self.criterion(q_s_a, qtarget)
+                    self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
+                    self.writer.write(str(self.epsilon_policy.eps) + " " + str(self.replaybuffer.length()) + "\n")
+                    tdloss.backward()
+                    self.optimizer.step()
+                    self.update_targetNet()
+                self.writer.close()
+                self.episode_writer.close()
+                self.writer = open("3dqn_status.log", "a")
+                self.episode_writer = open("3dqn_episode.log", "a")
+
+if __name__ == "__main__":
+    d3qn = D3qn()
+    d3qn.train()
+
+
+
+
                 
 
 

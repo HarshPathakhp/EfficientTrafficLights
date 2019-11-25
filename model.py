@@ -30,7 +30,10 @@ class DuelCNN(nn.Module):
         flat = self.flatten(x)
         value = self.value_head(flat)
         adv = self.advantage_head(flat)
-        qvalues = value + (adv - torch.mean(adv, dim = 1))
+        if(img.shape[0] != 1):
+            qvalues = value + (adv - torch.mean(adv, dim = 1, keepdim = True).repeat(1, self.num_actions))
+        else:
+            qvalues = value + (adv - torch.mean(adv, dim = 1))
         return qvalues
 
 

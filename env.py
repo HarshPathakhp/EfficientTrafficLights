@@ -81,7 +81,7 @@ class SumoIntersection:
     
     def _compute_observation(self):
         controlled_lanes = self.lanes
-        state_matrix = np.zeros((100,100,2))
+        state_matrix = np.zeros((2,100,100))
         for lane in controlled_lanes:
             w = traci.lane.getWidth(lane)
             l = traci.lane.getLength(lane)
@@ -95,7 +95,8 @@ class SumoIntersection:
                 maxspeed = traci.vehicle.getMaxSpeed(v)
                 adec = traci.vehicle.getDecel(v)
                 #print(int(pos[0]/3), int(pos[1]/3), speed, maxspeed, adec)
-                state_matrix[99 - int(pos[1]/3), int(pos[0]/3),:] = [1,speed/maxspeed]
+                state_matrix[0,99 - int(pos[1]/3), int(pos[0]/3)] = 1
+                state_matrix[1,99 - int(pos[1]/3), int(pos[0]/3)] = speed / maxspeed
         return state_matrix
 
     def take_action(self, phase_durations):
