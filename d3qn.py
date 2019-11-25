@@ -91,6 +91,7 @@ class D3qn:
 			cur_state = self.env.reset()
 			cur_action_phase = [START_GREEN for i in range(4)]
 			reward_sum = 0
+			wait_sum = 0
 			while(self.env.time <= STOP_TIME):
 				total_steps += 1
 				
@@ -106,6 +107,8 @@ class D3qn:
 				new_phases = self.get_phase_durations(action_id, cur_action_phase)
 				new_state, reward = self.env.take_action(new_phases)
 				reward_sum += reward
+				if(reward != (int)(-1e6)):
+					wait_sum += (-1 * reward)
 				reward /= 1e5
 				#self.writer.write(str(new_phases) + " " + str(reward) + "\n")
 				flag = 0
@@ -178,7 +181,9 @@ class D3qn:
 					self.update_targetNet()
 				self.writer.close()
 				self.writer = open("./Results/3dqn_status.log", "a")
-			self.episode_writer.write("EPISODE " + str(eps) + ": " + str(reward_sum) + "\n")
+			wait_sum /= self.env.num_vehicles
+			print(self.env.num_vehicles)
+			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/3dqn_episode.log", "a")
 			traci.close()
