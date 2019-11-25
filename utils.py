@@ -11,7 +11,7 @@ class PriorityBuffer:
         self.use_cuda = use_cuda
     def add(self, sample):
         """
-        add <st,at,st+1,rt+1> to list
+        add <st,pt,at,st+1,pt+1,rt+1> to list
         """
         if(len(self.datalist) == self.max_size):
             self.datalist.pop(0)
@@ -26,31 +26,34 @@ class PriorityBuffer:
 
         td_error = []
         for i in range(num_samples):
+            cur_state = torch.tensor(self.datalist[i][0]).float().unsqueeze(0)
+            cur_state_phase = torch.tensor(self.datalist[i][1]).float().unsqueeze(0)
+            action = self.datalist[i][2]
+            next_state = torch.tensor(self.datalist[i][3]).float().unsqueeze(0)
+            next_state_phase = torch.tensor(self.datalist[i][4]).float().unsqueeze(0)
+            reward = torch.tensor([self.datalist[i][5]])
 
-        	cur_state = torch.tensor(self.datalist[i][0]).float().unsqueeze(0)
-        	action = self.datalist[i][1]
-        	next_state = torch.tensor(self.datalist[i][2]).float().unsqueeze(0)
-        	reward = torch.tensor([self.datalist[i][3]])
+            if(self.use_cuda):
+                cur_state = cur_state.cuda()
+                cur_state_phase = cur_state_phase.cuda()
+                next_state = next_state.cuda()
+                next_state_phase = next_state_phase.cuda()
+                reward = reward.cuda()
 
-        	if(self.use_cuda):
-        		cur_state = cur_state.cuda()
-        		next_state = next_state.cuda()
-        		reward = reward.cuda()
-
-        	best_action = torch.argmax(primary_net(next_state).view(-1)).item()
-        	next_state_estimate = target_net(next_state).view(-1)[best_action]
-        	bootstrapped_output = reward + self.discount_factor * next_state_estimate 
-        	target_output = target_net(cur_state).view(-1)[action]
-        	
-        	error = torch.abs(bootstrapped_output - target_output).item()	
-        	td_error.append([error, i])	
+            best_action = torch.argmax(primary_net(next_state, next_state_phase).view(-1)).item()
+            next_state_estimate = target_net(next_state, next_state_phase).view(-1)[best_action]
+            bootstrapped_output = reward + self.discount_factor * next_state_estimate 
+            target_output = target_net(cur_state, cur_state_phase).view(-1)[action]
+            
+            error = torch.abs(bootstrapped_output - target_output).item()	
+            td_error.append([error, i])	
 
         td_error.sort()
         td_error.reverse()
         distribution = np.zeros(len(self.datalist)).astype(float)
         
         for i in range(num_samples):
-        	distribution[td_error[i][1]] = 1 / (i + 1)
+            distribution[td_error[i][1]] = 1 / (i + 1)
 
         distribution = distribution / distribution.sum()
         indices = np.random.choice(num_samples, size = (self.batch_size), replace = False, p = distribution)

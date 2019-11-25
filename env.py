@@ -105,7 +105,7 @@ class SumoIntersection:
         """
         sum = 0
         for i in phase_durations:
-            if(not (i >= 0 and i <= 60)):
+            if(not (i > 0 and i <= 60)):
                 return self._compute_observation(), (int)(-1e6)
         for i in phase_durations:
             sum += i + self.yellow_time

@@ -15,7 +15,7 @@ STOP_TIME = 99800
 START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 1000
+PRETRAIN_STEPS = 0
 BATCH_SIZE = 64
 BUFFER_SIZE = 50000
 """ Notation for actions ->
@@ -89,46 +89,76 @@ class D3qn:
         for eps in range(self.num_eps):
             cur_state = self.env.reset()
             cur_action_phase = [START_GREEN for i in range(4)]
+            
             while(self.env.time <= STOP_TIME):
-                #self.writer.write(str(self.replaybuffer.length()) + " " + str(total_steps) + "\n")
                 total_steps += 1
+                
+                cur_action_phase_np = np.array(cur_action_phase)
+                cur_action_phase_np = cur_action_phase_np / 60
                 cur_state_tensor = torch.from_numpy(cur_state).float().unsqueeze(0)
+                cur_phase_tensor = torch.from_numpy(cur_action_phase_np).float().unsqueeze(0)
                 if(self.use_cuda):
                     cur_state_tensor = cur_state_tensor.cuda()
-                qvalues = self.primary_model(cur_state_tensor)
+                    cur_phase_tensor = cur_phase_tensor.cuda()
+                qvalues = self.primary_model(cur_state_tensor, cur_phase_tensor)
                 action_id = self.epsilon_policy.select(qvalues[0].detach().cpu().numpy(), NUM_ACTIONS)
                 new_phases = self.get_phase_durations(action_id, cur_action_phase)
-                #self.writer.write(str(new_phases) + "\n")
                 new_state, reward = self.env.take_action(new_phases)
-                self.replaybuffer.add((cur_state, action_id, new_state, reward))
+                self.writer.write(str(new_phases) + " " + str(reward) + "\n")
+                flag = 0
+                for i in new_phases:
+                    if(not(i > 0 and i <= 60)):
+                        flag = 1
+                        break
+                if(flag == 1):
+                    new_phases = cur_action_phase
+                self.replaybuffer.add((cur_state, cur_action_phase, action_id, new_state, new_phases, reward))
+                
                 cur_state = new_state
                 cur_action_phase = new_phases
+                
                 if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
                     self.primary_model.eval()
                     self.target_model.eval()
                     samples = self.replaybuffer.sample(self.primary_model, self.target_model)
                     self.primary_model.train()
                     self.target_model.train()
-                    batch_stepreward = [s[3] for s in samples]
+                    batch_stepreward = [s[5] for s in samples]
                     batch_states_from = [s[0] for s in samples]
-                    batch_states_to = [s[2] for s in samples]
-                    batch_actions = [s[1] for s in samples]
+                    batch_states_from_phase = [s[1] for s in samples]
+                    batch_states_to = [s[3] for s in samples]
+                    batch_states_to_phase = [s[4] for s in samples]
+                    batch_actions = [s[2] for s in samples]
+
                     batch_states_from = np.array(batch_states_from)
+                    batch_states_from_phase = np.array(batch_states_from_phase) / 60
                     batch_states_to = np.array(batch_states_to)
+                    batch_states_to_phase = np.array(batch_states_to_phase) / 60
                     batch_stepreward = np.array(batch_stepreward)
                     batch_actions = np.array(batch_actions)
                     self.optimizer.zero_grad()
+
                     batch_states_from = torch.from_numpy(batch_states_from).float()
+                    batch_states_from_phase = torch.from_numpy(batch_states_from_phase).float()
+
                     batch_states_to = torch.from_numpy(batch_states_to).float()
+                    batch_states_to_phase = torch.from_numpy(batch_states_to_phase).float()
+
                     batch_stepreward = torch.from_numpy(batch_stepreward).float()
                     batch_actions = torch.from_numpy(batch_actions).float()
+                    
                     if(self.use_cuda):
                         batch_states_from = batch_states_from.cuda()
+                        batch_states_from_phase = batch_states_from_phase.cuda()
+
                         batch_states_to = batch_states_to.cuda()
+                        batch_states_to_phase = batch_states_to_phase.cuda()
+
                         batch_stepreward = batch_stepreward.cuda()
                         batch_actions = batch_actions.cuda()
-                    q_theta = self.primary_model(batch_states_from)
-                    q_theta_prime = self.target_model(batch_states_to)
+
+                    q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
+                    q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
                     _,argmax_actions = torch.max(q_theta, 1)
                     argmax_actions = argmax_actions.long()
                     qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
@@ -138,8 +168,8 @@ class D3qn:
                     q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
                     qtarget = qtarget.view(-1,1)
                     tdloss = self.criterion(q_s_a, qtarget)
-                    self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
-                    self.writer.write(str(self.epsilon_policy.eps) + " " + str(self.replaybuffer.length()) + "\n")
+                    #self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
+                    #self.writer.write(str(self.epsilon_policy.eps) + " " + str(self.replaybuffer.length()) + "\n")
                     tdloss.backward()
                     self.optimizer.step()
                     self.update_targetNet()
