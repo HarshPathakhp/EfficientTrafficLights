@@ -15,7 +15,8 @@ import numpy as np
 import pandas as pd
 from  traffic_signal import TrafficSignal
 np.set_printoptions(threshold=sys.maxsize)
-sumoBinary = "/usr/local/opt/sumo/bin/"
+temp = os.environ['SUMO_HOME'].find("share")
+sumoBinary = os.environ['SUMO_HOME'][:temp] + "bin/"
 
 class SumoIntersection:
     """

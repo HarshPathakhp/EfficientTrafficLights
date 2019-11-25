@@ -89,7 +89,7 @@ class D3qn:
         for eps in range(self.num_eps):
             cur_state = self.env.reset()
             cur_action_phase = [START_GREEN for i in range(4)]
-            
+            reward_sum = 0
             while(self.env.time <= STOP_TIME):
                 total_steps += 1
                 
@@ -104,7 +104,8 @@ class D3qn:
                 action_id = self.epsilon_policy.select(qvalues[0].detach().cpu().numpy(), NUM_ACTIONS)
                 new_phases = self.get_phase_durations(action_id, cur_action_phase)
                 new_state, reward = self.env.take_action(new_phases)
-                self.writer.write(str(new_phases) + " " + str(reward) + "\n")
+                reward_sum += reward
+                #self.writer.write(str(new_phases) + " " + str(reward) + "\n")
                 flag = 0
                 for i in new_phases:
                     if(not(i > 0 and i <= 60)):
@@ -168,7 +169,7 @@ class D3qn:
                     q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
                     qtarget = qtarget.view(-1,1)
                     tdloss = self.criterion(q_s_a, qtarget)
-                    #self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
+                    self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
                     #self.writer.write(str(self.epsilon_policy.eps) + " " + str(self.replaybuffer.length()) + "\n")
                     tdloss.backward()
                     self.optimizer.step()
@@ -176,8 +177,9 @@ class D3qn:
                 self.writer.close()
                 self.episode_writer.close()
                 self.writer = open("3dqn_status.log", "a")
-                self.episode_writer = open("3dqn_episode.log", "a")
-
+            self.episode_writer.write("EPISODE " + str(eps) + ": " + str(reward_sum) + "\n")
+            self.episode_writer = open("3dqn_episode.log", "a")
+            
 if __name__ == "__main__":
     d3qn = D3qn()
     d3qn.train()
