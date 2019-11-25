@@ -12,7 +12,7 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 import os
-STOP_TIME = 99800
+STOP_TIME = 5000
 START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
@@ -31,7 +31,7 @@ BUFFER_SIZE = 50000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 10000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -184,14 +184,8 @@ class D3qn:
 			traci.close()
 			
 if __name__ == "__main__":
-	try:
-		os.makedirs("./model")
-	except:
-		pass
-	try:
-		os.makedirs("./Results")
-	except:
-		pass
+	os.system("rm -rf Results")
+	os.makedirs("./Results")
 	d3qn = D3qn(use_cuda = True)
 	d3qn.train()
 
