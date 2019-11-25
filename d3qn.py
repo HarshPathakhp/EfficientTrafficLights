@@ -11,7 +11,7 @@ import torch
 import torch.optim as optim
 import torch.nn as nn
 import numpy as np
-STOP_TIME = 99800
+STOP_TIME = 1000
 START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
@@ -105,6 +105,7 @@ class D3qn:
                 new_phases = self.get_phase_durations(action_id, cur_action_phase)
                 new_state, reward = self.env.take_action(new_phases)
                 reward_sum += reward
+                reward /= 1e5
                 #self.writer.write(str(new_phases) + " " + str(reward) + "\n")
                 flag = 0
                 for i in new_phases:
@@ -175,10 +176,11 @@ class D3qn:
                     self.optimizer.step()
                     self.update_targetNet()
                 self.writer.close()
-                self.episode_writer.close()
                 self.writer = open("3dqn_status.log", "a")
             self.episode_writer.write("EPISODE " + str(eps) + ": " + str(reward_sum) + "\n")
+            self.episode_writer.close()
             self.episode_writer = open("3dqn_episode.log", "a")
+            traci.close()
             
 if __name__ == "__main__":
     d3qn = D3qn()
