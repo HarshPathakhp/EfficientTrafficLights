@@ -19,8 +19,8 @@ STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 100
-BATCH_SIZE = 128
+PRETRAIN_STEPS = 2000
+BATCH_SIZE = 512
 BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -34,7 +34,7 @@ BUFFER_SIZE = 20000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
+	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -62,8 +62,9 @@ class D3qn:
 			self.target_model.cuda()
 		self.criterion = nn.MSELoss()
 		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-4)
-		self.writer = open("./Results/3dqn_status.log", "w")
-		self.episode_writer = open("./Results/3dqn_episode.log", "w")
+		self.writer = open("./Results/3dqn_status.txt", "w")
+		self.episode_writer = open("./Results/3dqn_episode.txt", "w")
+		self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "w")
 	def get_phase_durations(self, action_id, current_duration):
 		ret_phases = [i for i in current_duration]
 		if(action_id == 1):
@@ -164,16 +165,21 @@ class D3qn:
 					qtarget = qtarget.view(-1,1)
 					tdloss = self.criterion(q_s_a, qtarget)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
+					self.epsilon_writer.write("STEP: " + str(self.epsilon_policy.eps) + "\n")
 					tdloss.backward()
 					self.optimizer.step()
 					self.update_targetNet()
 				self.writer.close()
-				self.writer = open("./Results/3dqn_status.log", "a")
+				self.writer = open("./Results/3dqn_status.txt", "a")
+				self.epsilon_writer.close()
+				self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "a")
+			if(not(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS)):
+				continue
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
-			self.episode_writer = open("./Results/3dqn_episode.log", "a")
+			self.episode_writer = open("./Results/3dqn_episode.txt", "a")
 			traci.close()
 			
 if __name__ == "__main__":
