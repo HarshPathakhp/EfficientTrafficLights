@@ -45,4 +45,37 @@ class DuelCNN(nn.Module):
         return qvalues
 
 
+class VanillaDQN(nn.Module):
+    def __init__(self, num_actions = 9, img_size = 100, in_channels = 2, num_phases = 4):
+        super(VanillaDQN, self).__init__()
+        conv_list = []
+        self.num_actions = num_actions
+        self.in_channels = in_channels
+        self.num_phases = num_phases
+        convlist = [nn.Conv2d(self.in_channels, 16, 3, stride = 1),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(16, 32, 3, stride = 2),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(32, 64, 3, stride = 2),
+                    nn.LeakyReLU(),
+                    nn.Conv2d(64, 128, 3, stride = 2),
+                    nn.LeakyReLU()]
+        self.dim = 11 * 11 * 128
+
+        phasenet = [nn.Linear(self.dim + self.num_phases, 512),
+                    nn.LeakyReLU(),
+                    nn.Linear(512, 256),
+                    nn.LeakyReLU(),
+                    nn.Linear(256, 128),
+                    nn.LeakyReLU(),
+                    nn.Linear(128, 64),
+                    nn.LeakyReLU(),
+                    nn.Linear(64, self.num_actions)]
+        self.conv = nn.Sequential(*convlist)
+        self.phase = nn.Sequential(*phasenet)
+    def forward(self, img, phase):
+        x = self.conv(img)
+        x = x.view(img.shape[0], -1)
+        x = torch.cat((x, phase), 1)
+        return self.phase(x)
 
