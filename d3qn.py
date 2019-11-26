@@ -12,13 +12,14 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 import os
-STOP_TIME = 5000
+STOP_TIME = 20000
 START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
 PRETRAIN_STEPS = 1000
 BATCH_SIZE = 64
 BUFFER_SIZE = 50000
+REWARD_NORM = 1e3
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -31,7 +32,7 @@ BUFFER_SIZE = 50000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 10000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -106,7 +107,7 @@ class D3qn:
 				new_phases = self.get_phase_durations(action_id, cur_action_phase)
 				new_state, reward = self.env.take_action(new_phases)
 				reward_sum += reward
-				reward /= 1e5
+				reward /= REWARD_NORM
 				#self.writer.write(str(new_phases) + " " + str(reward) + "\n")
 				flag = 0
 				for i in new_phases:
