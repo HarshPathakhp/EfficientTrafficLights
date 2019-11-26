@@ -178,14 +178,15 @@ class D3qn:
 						batch_stepreward = batch_stepreward.cuda()
 						batch_actions = batch_actions.cuda()
 
-					q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
+					q_theta_first_state = self.primary_model(batch_states_from, batch_states_from_phase) 
+					q_theta = self.primary_model(batch_states_to, batch_states_to_phase)
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
 					_,argmax_actions = torch.max(q_theta, 1)
 					#argmax_actions = argmax_actions.long()
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
 					qprime_vals = qprime_vals.view(-1)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
-					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
+					q_s_a = q_theta_first_state.gather(1, batch_actions.view(-1,1))
 					qtarget = qtarget.view(-1,1)
 					tdloss = self.criterion(q_s_a, qtarget)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
