@@ -19,9 +19,9 @@ STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
-REWARD_NORM = 1e3
-PRETRAIN_STEPS = 100
-BATCH_SIZE = 128
+REWARD_NORM = 1e5
+PRETRAIN_STEPS = 10
+BATCH_SIZE = 10
 BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -34,6 +34,27 @@ BUFFER_SIZE = 20000
 				<t1,t2,t3+5,t4> 7
 				<t1,t2,t3,t4+5> 8
 """
+import matplotlib.pyplot as plt
+fig = plt.figure(figsize = (15,15))
+	
+def plot_grad_flow(named_parameters, path):
+	#os.makedirs(path, exist_ok = True)
+	ave_grads = []
+	layers = []
+	for n, p in named_parameters:
+		if(p.requires_grad) and ("bias" not in n):
+			layers.append(n)
+			ave_grads.append(p.grad.abs().mean())
+	plt.plot(ave_grads, alpha=0.3, color="b")
+	plt.hlines(0, 0, len(ave_grads)+1, linewidth=1, color="k" )
+	plt.xticks(range(0,len(ave_grads), 1), layers, rotation="vertical")
+	plt.xlim(xmin=0, xmax=len(ave_grads))
+	plt.xlabel("Layers")
+	plt.ylabel("average gradient")
+	plt.title("Gradient flow")
+	plt.grid(True)
+	plt.savefig(path)
+
 class D3qn:
 	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
@@ -62,10 +83,11 @@ class D3qn:
 			self.primary_model.cuda()
 			self.target_model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-4)
+		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-3)
 		self.writer = open("./Results/3dqn_status.txt", "w")
 		self.episode_writer = open("./Results/3dqn_episode.txt", "w")
 		self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "w")
+		self.debug_writer = open("./Results/debug.txt", "w")
 	def get_phase_durations(self, action_id, current_duration):
 		ret_phases = [i for i in current_duration]
 		if(action_id == 1):
@@ -100,9 +122,10 @@ class D3qn:
 			cur_action_phase = [START_GREEN for i in range(4)]
 			reward_sum = 0
 			wait_sum = 0
+			self.debug_writer.write("-"*50 + "\n")
 			while(self.env.time <= STOP_TIME):
+				self.debug_writer.write(str(cur_action_phase) + "\n")
 				total_steps += 1
-				
 				cur_action_phase_np = np.array(cur_action_phase)
 				cur_action_phase_np = cur_action_phase_np / 60
 				cur_state_tensor = torch.from_numpy(cur_state).float().unsqueeze(0)
@@ -168,12 +191,15 @@ class D3qn:
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
 					self.epsilon_writer.write("STEP: " + str(self.epsilon_policy.eps) + "\n")
 					tdloss.backward()
+					#plot_grad_flow(self.primary_model.named_parameters(), "./Gradients/" + str(total_steps) + ".png")
 					self.optimizer.step()
 					self.update_targetNet()
 				self.writer.close()
 				self.writer = open("./Results/3dqn_status.txt", "a")
 				self.epsilon_writer.close()
 				self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "a")
+				self.debug_writer.close()
+				self.debug_writer = open("./Results/debug.txt", "a")
 		
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
@@ -183,9 +209,11 @@ class D3qn:
 			traci.close()
 			
 if __name__ == "__main__":
+	os.system("rm -rf Gradients")
+	os.makedirs("Gradients")
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = True, use_priorities = False)
+	d3qn = D3qn(use_cuda = False, use_priorities = False)
 	d3qn.train()
 
 
