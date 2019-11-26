@@ -174,6 +174,7 @@ class D3qn:
 				self.writer = open("./Results/3dqn_status.txt", "a")
 				self.epsilon_writer.close()
 				self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "a")
+		
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
