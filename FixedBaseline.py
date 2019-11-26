@@ -22,7 +22,7 @@ class FixedBaseline():
 								traci.trafficlight.Phase(self.time4, "rrrrrGrrrrrG"), 
 								traci.trafficlight.Phase(YELLOW, "rrrrryrrrrry")
 								], use_gui=False)
-		self.episode_writer = open("./Results_fixed/fixed" + str(ph1) + "_" + str(ph2) + "_" + str(ph3) + "_" + str(ph4) + "_episode.txt", "w")
+		self.episode_writer = open("./Results/fixed" + str(ph1) + "_" + str(ph2) + "_" + str(ph3) + "_" + str(ph4) + "_episode.txt", "w")
 	def run(self):
 		for eps in tqdm(range(self.num_episodes)):
 			wait_sum = 0
@@ -35,11 +35,11 @@ class FixedBaseline():
 			wait_sum /= self.env.num_vehicles
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
-			self.episode_writer = open("./Results_fixed/fixed" + str(self.time1) + "_" + str(self.time2) + "_" + str(self.time3) + "_" + str(self.time4) + "_episode.txt", "a")
+			self.episode_writer = open("./Results/fixed" + str(self.time1) + "_" + str(self.time2) + "_" + str(self.time3) + "_" + str(self.time4) + "_episode.txt", "a")
 			traci.close()
 if __name__ == "__main__":
-	os.system("rm -rf ./Results_fixed")
-	os.makedirs("./Results_fixed")
+	#os.system("rm -rf ./Results_fixed")
+	os.makedirs("./Results")
 	fx = FixedBaseline(ph1 = 30, ph2 = 30, ph3 = 30, ph4 = 30)
 	fx.run()
 	fx2 = FixedBaseline(ph1 = 40, ph2 = 40, ph3 = 40, ph4 = 40)
