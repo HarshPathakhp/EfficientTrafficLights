@@ -84,18 +84,11 @@ class SumoIntersection:
         controlled_lanes = self.lanes
         state_matrix = np.zeros((2,100,100))
         for lane in controlled_lanes:
-            w = traci.lane.getWidth(lane)
-            l = traci.lane.getLength(lane)
             vehicles = traci.lane.getLastStepVehicleIDs(lane)
             for v in vehicles:
-                if(self.vehicle_width is None):
-                    self.vehicle_width = traci.vehicle.getLength(v)
-                    self.vehcile_length = traci.vehicle.getWidth(v)
                 pos = traci.vehicle.getPosition(v)
                 speed = traci.vehicle.getSpeed(v)
                 maxspeed = traci.vehicle.getMaxSpeed(v)
-                adec = traci.vehicle.getDecel(v)
-                #print(int(pos[0]/3), int(pos[1]/3), speed, maxspeed, adec)
                 state_matrix[0,99 - int(pos[1]/3), int(pos[0]/3)] = 1
                 state_matrix[1,99 - int(pos[1]/3), int(pos[0]/3)] = speed / maxspeed
         return state_matrix
@@ -119,13 +112,9 @@ class SumoIntersection:
             for _ in range(time):
                 self._sumo_step()
                 waiting_time_map = self.util_update_waits(waiting_time_map)
-            #print(traci.trafficlight.getPhase(self.ts_ids[0]), (traci.trafficlight.getPhaseDuration(self.ts_ids[0])))
-            #print(traci.trafficlight.getNextSwitch(self.ts_ids[0]) - traci.simulation.getTime())
             for _ in range(self.yellow_time):
                 self._sumo_step()
                 waiting_time_map = self.util_update_waits(waiting_time_map)
-            #print(traci.trafficlight.getPhase(self.ts_ids[0]),(traci.trafficlight.getPhaseDuration(self.ts_ids[0])))
-            #print(traci.trafficlight.getNextSwitch(self.ts_ids[0]) - traci.simulation.getTime())
         wait_time = 0
         for k,v in waiting_time_map.items():
             if(self.existing_waiting_time.get(k,-1) != -1):
@@ -147,26 +136,25 @@ class SumoIntersection:
         return to_update_wait_map
     
 if __name__ == "__main__":
-    pass
-    #si = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
-    #                                    traci.trafficlight.Phase(32, "GGrrrrGGrrrr"),  
-    #                                    traci.trafficlight.Phase(2, "yyrrrryyrrrr"),
-    #                                    traci.trafficlight.Phase(32, "rrGrrrrrGrrr"),   
-    ##                                    traci.trafficlight.Phase(2, "rryrrrrryrrr"),
-    #                                   traci.trafficlight.Phase(32, "rrrGGrrrrGGr"),   
-    #                                    traci.trafficlight.Phase(2, "rrryyrrrryyr"),
-     #                                   traci.trafficlight.Phase(32, "rrrrrGrrrrrG"), 
-    #                                    traci.trafficlight.Phase(2, "rrrrryrrrrry")
-    #                                    ], use_gui=False)
+    si = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
+                                        traci.trafficlight.Phase(32, "GGrrrrGGrrrr"),  
+                                        traci.trafficlight.Phase(2, "yyrrrryyrrrr"),
+                                        traci.trafficlight.Phase(32, "rrGrrrrrGrrr"),   
+                                        traci.trafficlight.Phase(2, "rryrrrrryrrr"),
+                                       traci.trafficlight.Phase(32, "rrrGGrrrrGGr"),   
+                                        traci.trafficlight.Phase(2, "rrryyrrrryyr"),
+                                       traci.trafficlight.Phase(32, "rrrrrGrrrrrG"), 
+                                        traci.trafficlight.Phase(2, "rrrrryrrrrry")
+                                        ], use_gui=False)
 
     #HOW TO RUN
-    #state_1 = si.reset()
-    #r = []
-    #for i in range(20):
-    #    state_2, r1 = si.take_action([30,30,30,30])
-    #    r.append(r1)
-    #print(r)
-    #traci.close()
+    state_1 = si.reset()
+    r = []
+    for i in range(20):
+        state_2, r1 = si.take_action([10,10,10,10])
+        r.append(r1)
+    print(r)
+    traci.close()
     #state_2 = si.reset()
     #for i in range(100):
     #    for j in range(100):
