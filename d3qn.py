@@ -213,8 +213,9 @@ if __name__ == "__main__":
 	os.system("rm -rf Gradients")
 	os.makedirs("Gradients")
 	#os.system("rm -rf Results")
-	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = True, use_priorities = False)
+	os.makedirs("./Results", exist_ok = True)
+	gpu_avail = torch.cuda.is_available()
+	d3qn = D3qn(use_cuda = gpu_avail, use_priorities = False)
 	d3qn.train()
 
 
