@@ -34,7 +34,7 @@ BUFFER_SIZE = 20000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
+	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -173,6 +173,8 @@ class D3qn:
 				self.writer = open("./Results/3dqn_status.txt", "a")
 				self.epsilon_writer.close()
 				self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "a")
+			if(not(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS)):
+				continue
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
