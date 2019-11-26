@@ -87,7 +87,7 @@ class Dqn:
 		return ret_phases
 	def train(self):
 		total_steps = 0
-		for eps in (range(self.num_eps)):
+		for eps in tqdm(range(self.num_eps)):
 			cur_state = self.env.reset()
 			cur_action_phase = [START_GREEN for i in range(4)]
 			reward_sum = 0
