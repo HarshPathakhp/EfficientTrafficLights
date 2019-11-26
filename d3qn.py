@@ -6,6 +6,7 @@ from model import DuelCNN
 from env import SumoIntersection
 import traci
 from utils import PriorityBuffer
+from utils import Buffer
 from utils import EpsilonPolicy
 import torch
 import torch.optim as optim
@@ -19,8 +20,8 @@ START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
 PRETRAIN_STEPS = 100
-BATCH_SIZE = 64
-BUFFER_SIZE = 10000
+BATCH_SIZE = 128
+BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -33,7 +34,7 @@ BUFFER_SIZE = 10000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -44,11 +45,14 @@ class D3qn:
 								traci.trafficlight.Phase(START_GREEN, "rrrrrGrrrrrG"), 
 								traci.trafficlight.Phase(YELLOW, "rrrrryrrrrry")
 								], use_gui=False)
-
+		self.use_priorities  = use_priorities
 		self.primary_model = DuelCNN(num_actions = 9)
 		self.target_model = DuelCNN(num_actions = 9)
 		self.use_cuda = use_cuda
-		self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE, use_cuda = self.use_cuda)
+		if(not self.use_priorities):
+			self.replaybuffer = Buffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+		else:
+			self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE, use_cuda = self.use_cuda)
 		self.num_eps = num_episodes
 		self.discount_factor = discount_factor
 		self.epsilon_policy = EpsilonPolicy()
@@ -126,8 +130,10 @@ class D3qn:
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
 					self.primary_model.eval()
 					self.target_model.eval()
-					samples = self.replaybuffer.sample(self.primary_model, self.target_model)
-					
+					if(not self.use_priorities):
+						samples = self.replaybuffer.sample()
+					else:
+						samples = self.replaybuffer.sample(self.primary_model, self.target_model)
 					self.primary_model.train()
 					self.target_model.train()
 					self.optimizer.zero_grad()
@@ -150,16 +156,14 @@ class D3qn:
 					q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
 					_,argmax_actions = torch.max(q_theta, 1)
-					argmax_actions = argmax_actions.long()
+					#argmax_actions = argmax_actions.long()
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
 					qprime_vals = qprime_vals.view(-1)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
-					batch_actions = batch_actions.long()
 					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
 					qtarget = qtarget.view(-1,1)
 					tdloss = self.criterion(q_s_a, qtarget)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
-					
 					tdloss.backward()
 					self.optimizer.step()
 					self.update_targetNet()
@@ -175,7 +179,7 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = True)
+	d3qn = D3qn(use_cuda = True, use_priorities = False)
 	d3qn.train()
 
 
