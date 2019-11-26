@@ -1,6 +1,11 @@
 ./3dqn_episode.log
 ./3dqn_status.log
 Results/*
+Results/
+Results_fixed/
+./Results/
+./Results_fixed/
 Results_dqn/*
 __pycache__/*
 Results_fixed/*
+Gradients/*
