@@ -4,3 +4,4 @@ Results/*
 Results_dqn/*
 __pycache__/*
 Results_fixed/*
+Gradients/*
