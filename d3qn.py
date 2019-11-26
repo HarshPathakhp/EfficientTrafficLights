@@ -179,8 +179,6 @@ if __name__ == "__main__":
 	d3qn.train()
 
 
-
-
 				
 
 
