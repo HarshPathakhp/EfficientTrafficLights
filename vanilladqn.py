@@ -179,6 +179,6 @@ class Dqn:
 if __name__ == "__main__":
 	#os.system("rm -rf Results_dqn")
 	os.makedirs("./Results")
-	dqn = Dqn(use_cuda = False, use_priorities = False)
+	dqn = Dqn(use_cuda = True, use_priorities = False)
 	dqn.train()
 
