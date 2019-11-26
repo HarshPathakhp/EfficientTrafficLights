@@ -19,8 +19,8 @@ STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 4
-BATCH_SIZE = 4
+PRETRAIN_STEPS = 100
+BATCH_SIZE = 128
 BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -179,7 +179,7 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = False, use_priorities = False)
+	d3qn = D3qn(use_cuda = True, use_priorities = False)
 	d3qn.train()
 
 
