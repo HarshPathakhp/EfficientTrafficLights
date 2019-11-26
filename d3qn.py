@@ -200,7 +200,7 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = False)
+	d3qn = D3qn(use_cuda = True)
 	d3qn.train()
 
 
