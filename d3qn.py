@@ -19,6 +19,7 @@ STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
+REWARD_NORM = 1e3
 PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
 BUFFER_SIZE = 20000
@@ -116,7 +117,7 @@ class D3qn:
 				reward_sum += reward
 				if(reward != (int)(-1e6)):
 					wait_sum += (-1 * reward)
-				reward /= 1e5
+				reward /= REWARD_NORM
 				#self.writer.write(str(new_phases) + " " + str(reward) + "\n")
 				flag = 0
 				for i in new_phases:
