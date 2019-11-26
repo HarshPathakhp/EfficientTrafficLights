@@ -12,13 +12,13 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 import os
-STOP_TIME = 20000
-START_GREEN = 10
+STOP_TIME = 10000
+START_GREEN = 60
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 1000
-BATCH_SIZE = 64
-BUFFER_SIZE = 50000
+PRETRAIN_STEPS = 1
+BATCH_SIZE = 1
+BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -31,7 +31,7 @@ BUFFER_SIZE = 50000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 2000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 1500, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -122,7 +122,6 @@ class D3qn:
 				
 				cur_state = new_state
 				cur_action_phase = new_phases
-				
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
 					self.primary_model.eval()
 					self.target_model.eval()
@@ -165,17 +164,27 @@ class D3qn:
 
 					q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
+					print(q_theta.is_cuda)
 					_,argmax_actions = torch.max(q_theta, 1)
+					print(argmax_actions.is_cuda)
 					argmax_actions = argmax_actions.long()
+					print(argmax_actions.is_cuda)
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
+					print(qprime_vals.is_cuda)
 					qprime_vals = qprime_vals.view(-1)
+					print(qprime_vals.is_cuda)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
+					print(qtarget.is_cuda)
 					batch_actions = batch_actions.long()
+					print(batch_actions.is_cuda)
 					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
+					print(q_s_a.is_cuda)
 					qtarget = qtarget.view(-1,1)
+					print(qtarget.is_cuda)
 					tdloss = self.criterion(q_s_a, qtarget)
+					print(tdloss.is_cuda)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
-					#self.writer.write(str(self.epsilon_policy.eps) + " " + str(self.replaybuffer.length()) + "\n")
+					
 					tdloss.backward()
 					self.optimizer.step()
 					self.update_targetNet()
