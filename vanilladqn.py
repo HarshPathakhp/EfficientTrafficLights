@@ -24,6 +24,7 @@ PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
 BUFFER_SIZE = 20000
 EPSILON = 0.4
+REWARD_NORM = 1e3
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -109,7 +110,7 @@ class Dqn:
 				reward_sum += reward
 				if(reward != (int)(-1e6)):
 					wait_sum += (-1 * reward)
-				reward /= 1e5
+				reward /= REWARD_NORM
 				flag = 0
 				for i in new_phases:
 					if(not(i > 0 and i <= 60)):
