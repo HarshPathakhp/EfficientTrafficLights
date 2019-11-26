@@ -6,6 +6,7 @@ from model import DuelCNN
 from env import SumoIntersection
 import traci
 from utils import PriorityBuffer
+from utils import Buffer
 from utils import EpsilonPolicy
 import torch
 import torch.optim as optim
@@ -18,9 +19,9 @@ STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 16
-BATCH_SIZE = 16
-BUFFER_SIZE = 10000
+PRETRAIN_STEPS = 4
+BATCH_SIZE = 4
+BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -33,7 +34,7 @@ BUFFER_SIZE = 10000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99, use_priorities = False):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -44,11 +45,14 @@ class D3qn:
 								traci.trafficlight.Phase(START_GREEN, "rrrrrGrrrrrG"), 
 								traci.trafficlight.Phase(YELLOW, "rrrrryrrrrry")
 								], use_gui=False)
-
+		self.use_priorities  = use_priorities
 		self.primary_model = DuelCNN(num_actions = 9)
 		self.target_model = DuelCNN(num_actions = 9)
 		self.use_cuda = use_cuda
-		self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE, use_cuda = self.use_cuda)
+		if(not self.use_priorities):
+			self.replaybuffer = Buffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+		else:
+			self.replaybuffer = PriorityBuffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE, use_cuda = self.use_cuda)
 		self.num_eps = num_episodes
 		self.discount_factor = discount_factor
 		self.epsilon_policy = EpsilonPolicy()
@@ -126,8 +130,10 @@ class D3qn:
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
 					self.primary_model.eval()
 					self.target_model.eval()
-					samples = self.replaybuffer.sample(self.primary_model, self.target_model)
-					
+					if(not self.use_priorities):
+						samples = self.replaybuffer.sample()
+					else:
+						samples = self.replaybuffer.sample(self.primary_model, self.target_model)
 					self.primary_model.train()
 					self.target_model.train()
 					self.optimizer.zero_grad()
@@ -173,7 +179,7 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = True)
+	d3qn = D3qn(use_cuda = False, use_priorities = False)
 	d3qn.train()
 
 

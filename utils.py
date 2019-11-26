@@ -2,6 +2,52 @@ import numpy as np
 import torch
 import torch.nn as nn
 import math 
+class Buffer:
+    def __init__(self, max_size = 50000, batch_size = 16):
+        self.datalist = []
+        self.max_size = max_size
+        self.batch_size = batch_size
+    
+    def add(self, sample):
+        """
+        add <st,pt,at,st+1,pt+1,rt+1> to list
+        """
+        if(len(self.datalist) == self.max_size):
+            self.datalist.pop(0)
+        cur_state = torch.tensor(sample[0]).float().unsqueeze(0)
+        cur_state_phase = torch.tensor(sample[1]).float().unsqueeze(0)
+        next_state = torch.tensor(sample[3]).float().unsqueeze(0)
+        next_state_phase = torch.tensor(sample[4]).float().unsqueeze(0)
+        action = torch.tensor(sample[2]).view(1).long()
+        reward = torch.tensor(sample[5]).view(1).float()
+        self.datalist.append((cur_state, cur_state_phase, action, next_state, next_state_phase, reward))
+    
+    def sample(self):
+        indices = np.random.choice(self.length(), size = (self.batch_size))
+        batch_from = []
+        batch_from_phase = []
+        batch_to = []
+        batch_to_phase = []
+        batch_actions = []
+        batch_reward = []
+        for i in indices:
+            batch_from.append(self.datalist[i][0])
+            batch_from_phase.append(self.datalist[i][1])
+            batch_to.append(self.datalist[i][3])
+            batch_to_phase.append(self.datalist[i][4])
+            batch_actions.append(self.datalist[i][2])
+            batch_reward.append(self.datalist[i][5])
+        batch_from = torch.cat(batch_from, 0)
+        batch_to = torch.cat(batch_to, 0)
+        batch_from_phase = torch.cat(batch_from_phase, 0) / 60.0
+        batch_to_phase = torch.cat(batch_to_phase, 0) / 60.0
+        batch_actions = torch.cat(batch_actions, 0)
+        batch_reward = torch.cat(batch_reward, 0)
+        return [batch_from, batch_from_phase, batch_actions, batch_to, batch_to_phase, batch_reward]
+
+    def length(self):
+        return len(self.datalist)     
+
 class PriorityBuffer:
     def __init__(self, max_size = 50000, batch_size = 16, discount_factor = 0.99, use_cuda = False):
         self.datalist = []
@@ -89,7 +135,6 @@ class PriorityBuffer:
 
     def length(self):
         return len(self.datalist)
-
 
 
 
