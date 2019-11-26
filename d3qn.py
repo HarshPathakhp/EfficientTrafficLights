@@ -12,13 +12,15 @@ import torch.optim as optim
 import torch.nn as nn
 import numpy as np
 import os
+import sys
+from tqdm import tqdm
 STOP_TIME = 10000
-START_GREEN = 60
+START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
-PRETRAIN_STEPS = 1
-BATCH_SIZE = 1
-BUFFER_SIZE = 20000
+PRETRAIN_STEPS = 100
+BATCH_SIZE = 64
+BUFFER_SIZE = 10000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -31,7 +33,7 @@ BUFFER_SIZE = 20000
 				<t1,t2,t3,t4+5> 8
 """
 class D3qn:
-	def __init__(self, num_episodes = 1500, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
+	def __init__(self, num_episodes = 1000, use_cuda = False, alpha = 0.01, discount_factor = 0.99):
 		self.env = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
 								traci.trafficlight.Phase(START_GREEN, "GGrrrrGGrrrr"),  
 								traci.trafficlight.Phase(YELLOW, "yyrrrryyrrrr"),
@@ -87,7 +89,7 @@ class D3qn:
 				param.copy_((1 - self.alpha) * param.data + (self.alpha) * dict_primary[name].data)
 	def train(self):
 		total_steps = 0
-		for eps in range(self.num_eps):
+		for eps in tqdm(range(self.num_eps)):
 			cur_state = self.env.reset()
 			cur_action_phase = [START_GREEN for i in range(4)]
 			reward_sum = 0
@@ -119,39 +121,22 @@ class D3qn:
 				if(flag == 1):
 					new_phases = cur_action_phase
 				self.replaybuffer.add((cur_state, cur_action_phase, action_id, new_state, new_phases, reward))
-				
 				cur_state = new_state
 				cur_action_phase = new_phases
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
 					self.primary_model.eval()
 					self.target_model.eval()
 					samples = self.replaybuffer.sample(self.primary_model, self.target_model)
+					
 					self.primary_model.train()
 					self.target_model.train()
-					batch_stepreward = [s[5] for s in samples]
-					batch_states_from = [s[0] for s in samples]
-					batch_states_from_phase = [s[1] for s in samples]
-					batch_states_to = [s[3] for s in samples]
-					batch_states_to_phase = [s[4] for s in samples]
-					batch_actions = [s[2] for s in samples]
-
-					batch_states_from = np.array(batch_states_from)
-					batch_states_from_phase = np.array(batch_states_from_phase) / 60
-					batch_states_to = np.array(batch_states_to)
-					batch_states_to_phase = np.array(batch_states_to_phase) / 60
-					batch_stepreward = np.array(batch_stepreward)
-					batch_actions = np.array(batch_actions)
 					self.optimizer.zero_grad()
-
-					batch_states_from = torch.from_numpy(batch_states_from).float()
-					batch_states_from_phase = torch.from_numpy(batch_states_from_phase).float()
-
-					batch_states_to = torch.from_numpy(batch_states_to).float()
-					batch_states_to_phase = torch.from_numpy(batch_states_to_phase).float()
-
-					batch_stepreward = torch.from_numpy(batch_stepreward).float()
-					batch_actions = torch.from_numpy(batch_actions).float()
-					
+					batch_states_from = samples[0]
+					batch_states_from_phase = samples[1]
+					batch_states_to = samples[3]
+					batch_states_to_phase = samples[4]
+					batch_actions = samples[2]
+					batch_stepreward = samples[5]
 					if(self.use_cuda):
 						batch_states_from = batch_states_from.cuda()
 						batch_states_from_phase = batch_states_from_phase.cuda()
@@ -164,25 +149,15 @@ class D3qn:
 
 					q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
-					print(q_theta.is_cuda)
 					_,argmax_actions = torch.max(q_theta, 1)
-					print(argmax_actions.is_cuda)
 					argmax_actions = argmax_actions.long()
-					print(argmax_actions.is_cuda)
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
-					print(qprime_vals.is_cuda)
 					qprime_vals = qprime_vals.view(-1)
-					print(qprime_vals.is_cuda)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
-					print(qtarget.is_cuda)
 					batch_actions = batch_actions.long()
-					print(batch_actions.is_cuda)
 					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
-					print(q_s_a.is_cuda)
 					qtarget = qtarget.view(-1,1)
-					print(qtarget.is_cuda)
 					tdloss = self.criterion(q_s_a, qtarget)
-					print(tdloss.is_cuda)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")
 					
 					tdloss.backward()
@@ -200,7 +175,7 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Results")
 	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = True)
+	d3qn = D3qn(use_cuda = False)
 	d3qn.train()
 
 
