@@ -20,13 +20,8 @@ START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
 REWARD_NORM = 1e5
-<<<<<<< HEAD
-PRETRAIN_STEPS = 100
-BATCH_SIZE = 128
-=======
 PRETRAIN_STEPS = 10
 BATCH_SIZE = 10
->>>>>>> c1f6335c8ac8d183ad59ddf0c4f2e37b608e87f3
 BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -183,14 +178,15 @@ class D3qn:
 						batch_stepreward = batch_stepreward.cuda()
 						batch_actions = batch_actions.cuda()
 
-					q_theta = self.primary_model(batch_states_from, batch_states_from_phase)
+					q_theta_first_state = self.primary_model(batch_states_from, batch_states_from_phase) 
+					q_theta = self.primary_model(batch_states_to, batch_states_to_phase)
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
 					_,argmax_actions = torch.max(q_theta, 1)
 					#argmax_actions = argmax_actions.long()
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
 					qprime_vals = qprime_vals.view(-1)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
-					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
+					q_s_a = q_theta_first_state.gather(1, batch_actions.view(-1,1))
 					qtarget = qtarget.view(-1,1)
 					tdloss = self.criterion(q_s_a, qtarget)
 					self.writer.write("EPISODE: " + str(eps) + " STEP " + str(total_steps) + ": TDLOSS: " + str(tdloss.item()) + "\n")

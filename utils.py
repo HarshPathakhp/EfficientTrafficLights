@@ -96,7 +96,7 @@ class PriorityBuffer:
             best_action = torch.argmax(primary_net(next_state, next_state_phase).view(-1)).item()
             next_state_estimate = target_net(next_state, next_state_phase).view(-1)[best_action]
             bootstrapped_output = reward + self.discount_factor * next_state_estimate 
-            target_output = target_net(cur_state, cur_state_phase).view(-1)[action]
+            target_output = primary_net(cur_state, cur_state_phase).view(-1)[action]
             
             error = torch.abs(bootstrapped_output - target_output).item()	
             td_error.append([error, i])	
