@@ -1,7 +1,7 @@
 """
 Double Dueling Deep Q-Learning
 """
-
+from tqdm import tqdm as tqdm
 from model import DuelCNN
 from env import SumoIntersection
 import traci
