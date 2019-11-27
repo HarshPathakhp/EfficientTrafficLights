@@ -214,12 +214,13 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Gradients")
 	os.makedirs("Gradients")
-	# os.system("rm -rf Results")
+	#os.system("rm -rf Results")
 	try:
-		os.makedirs("./Results")
+		os.makedirs("./Results", exist_ok = True)
 	except:
 		pass
-	d3qn = D3qn(use_cuda = True, use_priorities = False)
+	gpu_avail = torch.cuda.is_available()
+	d3qn = D3qn(use_cuda = gpu_avail, use_priorities = False)
 	d3qn.train()
 
 

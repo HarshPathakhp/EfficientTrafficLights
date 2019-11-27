@@ -179,9 +179,10 @@ class Dqn:
 if __name__ == "__main__":
 	#os.system("rm -rf Results_dqn")
 	try:
-		os.makedirs("./Results")
+		os.makedirs("./Results", exist_ok = True)
 	except:
 		pass
-	dqn = Dqn(use_cuda = True, use_priorities = False)
+	gpu_avail = torch.cuda.is_available()
+	dqn = Dqn(use_cuda = gpu_avail, use_priorities = False)
 	dqn.train()
 
