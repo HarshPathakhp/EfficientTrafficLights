@@ -135,6 +135,7 @@ class D3qn:
 				else:
 					valid_moves[j] = -99999
 			ret[idx,:] = valid_moves
+		tensor_phase /= 60
 		return torch.tensor(ret).float()		
 
 	def update_targetNet(self):

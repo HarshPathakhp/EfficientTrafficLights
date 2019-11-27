@@ -16,8 +16,9 @@ import numpy as np
 import os
 import sys
 from tqdm import tqdm
+from env import MAX_REWARD
 STOP_TIME = 10000
-START_GREEN = 20
+START_GREEN = 5
 YELLOW = 3
 NUM_ACTIONS = 9
 PRETRAIN_STEPS = 100
@@ -51,6 +52,7 @@ class Dqn:
 		self.use_priorities  = use_priorities
 		self.use_cuda = use_cuda
 		self.model = VanillaDQN(num_actions = NUM_ACTIONS)
+		self.num_actions = NUM_ACTIONS
 		if(not self.use_priorities):
 			self.replaybuffer = Buffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
 		else:
@@ -61,11 +63,40 @@ class Dqn:
 		if(self.use_cuda):
 			self.model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-4)
+		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-3)
 		
 		self.writer = open("./Results/dqn_status.txt", "w")
 		self.episode_writer = open("./Results/dqn_episode.txt", "w")
 		self.epsilon_writer = open("./Results/dqn_epsilon.txt", "w")
+		self.debug_writer = open("./Results/debug_dqn.txt", "w")
+	def fill_validmoves(self, cur_phase):
+		validmoves = [0 for i in range(self.num_actions)]
+		for action_id in range(self.num_actions):
+			new_phases = self.get_phase_durations(action_id, cur_phase)
+			flag = 0
+			for time in new_phases:
+				if(not(time >= 5 and time <= 60)):
+					validmoves[action_id] = 0
+					flag = 1
+					break
+			if(flag == 0):
+				validmoves[action_id] = 1
+		return validmoves	
+	
+	def penalise_bad_moves(self, tensor_phase):
+		ret = np.zeros((tensor_phase.shape[0], self.num_actions))
+		tensor_phase *= 60
+		for idx in range(tensor_phase.shape[0]):
+			cur_phase = tensor_phase[idx,:].numpy().tolist()
+			valid_moves = self.fill_validmoves(cur_phase)
+			for j in range(len(valid_moves)):
+				if(valid_moves[j] == 1):
+					valid_moves[j] = 0
+				else:
+					valid_moves[j] = -99999
+			ret[idx,:] = valid_moves
+		tensor_phase /= 60
+		return torch.tensor(ret).float()
 	
 	def get_phase_durations(self, action_id, current_duration):
 		ret_phases = [i for i in current_duration]
@@ -89,12 +120,14 @@ class Dqn:
 	def train(self):
 		total_steps = 0
 		for eps in tqdm(range(self.num_eps)):
+			self.debug_writer.write("-" * 50 + "\n") 
 			cur_state = self.env.reset()
 			cur_action_phase = [START_GREEN for i in range(4)]
 			reward_sum = 0
 			wait_sum = 0
 			while(self.env.time <= STOP_TIME):
 				total_steps += 1
+				self.debug_writer.write(str(cur_action_phase) + "\n")
 				cur_action_phase_np = np.array(cur_action_phase)
 				cur_action_phase_np = cur_action_phase_np / 60
 				cur_state_tensor = torch.from_numpy(cur_state).float().unsqueeze(0)
@@ -103,12 +136,23 @@ class Dqn:
 					cur_state_tensor = cur_state_tensor.cuda()
 					cur_phase_tensor = cur_phase_tensor.cuda()
 				qvalues = self.model(cur_state_tensor, cur_phase_tensor)
-
-				action_id = self.epsilon_policy.select(qvalues[0].detach().cpu().numpy(), NUM_ACTIONS)
-				new_phases = self.get_phase_durations(action_id, cur_action_phase)
+				valid_moves = self.fill_validmoves(cur_action_phase)
+				self.debug_writer.write(str(valid_moves) + "\n")
+				qvalues = qvalues[0].detach().cpu().numpy()
+				new_qvalues = []
+				new_actions = []
+				for i in range(self.num_actions):
+					if(valid_moves[i] == 1):
+						new_actions.append(i)
+						new_qvalues.append(qvalues[i])
+				new_qvalues = np.array(new_qvalues)
+				
+				action_id = self.epsilon_policy.select(new_qvalues, len(new_qvalues))
+				new_phases = self.get_phase_durations(new_actions[action_id], cur_action_phase)
 				new_state, reward = self.env.take_action(new_phases)
 				reward_sum += reward
-				if(reward != (int)(-1e6)):
+				self.debug_writer.write(str(reward) + "\n")
+				if(reward != (int)(MAX_REWARD)):
 					wait_sum += (-1 * reward)
 				reward /= REWARD_NORM
 				flag = 0
@@ -118,7 +162,7 @@ class Dqn:
 						break
 				if(flag == 1):
 					new_phases = cur_action_phase
-				self.replaybuffer.add((cur_state, cur_action_phase, action_id, new_state, new_phases, reward))
+				self.replaybuffer.add((cur_state, cur_action_phase, new_actions[action_id], new_state, new_phases, reward))
 				cur_state = new_state
 				cur_action_phase = new_phases
 
@@ -139,6 +183,7 @@ class Dqn:
 					batch_states_to_phase = samples[4]
 					batch_actions = samples[2]
 					batch_stepreward = samples[5]
+					illegal_costs = self.penalise_bad_moves(batch_states_to_phase)
 					if(self.use_cuda):
 						batch_states_from = batch_states_from.cuda()
 						batch_states_from_phase = batch_states_from_phase.cuda()
@@ -154,7 +199,7 @@ class Dqn:
 					q_theta_prime = Variable(q_theta_prime.detach(), requires_grad = False)
 					if(self.use_cuda):
 						q_theta_prime = q_theta_prime.cuda()
-					maxv, _ = torch.max(q_theta_prime, 1)
+					maxv, _ = torch.max(q_theta_prime + illegal_costs, 1)
 					qtarget = batch_stepreward + self.discount_factor * maxv
 					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
 					qtarget = qtarget.view(-1,1)
@@ -173,8 +218,11 @@ class Dqn:
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
+			self.debug_writer.close()
 			self.episode_writer = open("./Results/dqn_episode.txt", "a")
+			self.debug_writer = open("./Results/debug_dqn.txt", "a")
 			traci.close()
+
 
 if __name__ == "__main__":
 	#os.system("rm -rf Results_dqn")
