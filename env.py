@@ -1,5 +1,5 @@
 import os, sys
-MAX_REWARD = 1e5
+MAX_REWARD = 1e7
 
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
