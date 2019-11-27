@@ -22,8 +22,8 @@ START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
 REWARD_NORM = 1e5
-PRETRAIN_STEPS = 100
-BATCH_SIZE = 128
+PRETRAIN_STEPS = 4
+BATCH_SIZE = 4
 BUFFER_SIZE = 20000
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -73,6 +73,7 @@ class D3qn:
 		self.primary_model = DuelCNN(num_actions = 9)
 		self.target_model = DuelCNN(num_actions = 9)
 		self.use_cuda = use_cuda
+		self.num_actions = NUM_ACTIONS
 		if(not self.use_priorities):
 			self.replaybuffer = Buffer(max_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
 		else:
@@ -109,6 +110,33 @@ class D3qn:
 		elif action_id == 8:
 			ret_phases[3] += 5
 		return ret_phases
+	def fill_validmoves(self, cur_phase):
+		validmoves = [0 for i in range(self.num_actions)]
+		for action_id in range(self.num_actions):
+			new_phases = self.get_phase_durations(action_id, cur_phase)
+			flag = 0
+			for time in new_phases:
+				if(not(time >= 5 and time <= 60)):
+					validmoves[action_id] = 0
+					flag = 1
+					break
+			if(flag == 0):
+				validmoves[action_id] = 1
+		return validmoves	
+	def penalise_bad_moves(self, tensor_phase):
+		ret = np.zeros((tensor_phase.shape[0], self.num_actions))
+		tensor_phase *= 60
+		for idx in range(tensor_phase.shape[0]):
+			cur_phase = tensor_phase[idx,:].numpy().tolist()
+			valid_moves = self.fill_validmoves(cur_phase)
+			for j in range(len(valid_moves)):
+				if(valid_moves[j] == 1):
+					valid_moves[j] = 0
+				else:
+					valid_moves[j] = -99999
+			ret[idx,:] = valid_moves
+		return torch.tensor(ret).float()		
+
 	def update_targetNet(self):
 		dict_primary = {}
 		for name, param in self.primary_model.named_parameters():
@@ -136,10 +164,21 @@ class D3qn:
 					cur_state_tensor = cur_state_tensor.cuda()
 					cur_phase_tensor = cur_phase_tensor.cuda()
 				qvalues = self.primary_model(cur_state_tensor, cur_phase_tensor)
-				action_id = self.epsilon_policy.select(qvalues[0].detach().cpu().numpy(), NUM_ACTIONS)
-				new_phases = self.get_phase_durations(action_id, cur_action_phase)
+				valid_moves = self.fill_validmoves(cur_action_phase)
+				self.debug_writer.write(str(valid_moves) + "\n")
+				qvalues = qvalues[0].detach().cpu().numpy()
+				new_qvalues = []
+				new_actions = []
+				for i in range(self.num_actions):
+					if(valid_moves[i] == 1):
+						new_actions.append(i)
+						new_qvalues.append(qvalues[i])
+				new_qvalues = np.array(new_qvalues)
+				action_id = self.epsilon_policy.select(new_qvalues, len(new_qvalues))
+				new_phases = self.get_phase_durations(new_actions[action_id], cur_action_phase)
 				new_state, reward = self.env.take_action(new_phases)
 				reward_sum += reward
+				self.debug_writer.write(str(reward) + "\n")
 				if(reward != (int)(-MAX_REWARD)):
 					wait_sum += (-1 * reward)
 				reward /= REWARD_NORM
@@ -150,8 +189,9 @@ class D3qn:
 						flag = 1
 						break
 				if(flag == 1):
+					self.debug_writer("oops\n")
 					new_phases = cur_action_phase
-				self.replaybuffer.add((cur_state, cur_action_phase, action_id, new_state, new_phases, reward))
+				self.replaybuffer.add((cur_state, cur_action_phase, new_actions[action_id], new_state, new_phases, reward))
 				cur_state = new_state
 				cur_action_phase = new_phases
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
@@ -170,6 +210,8 @@ class D3qn:
 					batch_states_to_phase = samples[4]
 					batch_actions = samples[2]
 					batch_stepreward = samples[5]
+
+					illegal_costs = self.penalise_bad_moves(batch_states_to_phase)
 					if(self.use_cuda):
 						batch_states_from = batch_states_from.cuda()
 						batch_states_from_phase = batch_states_from_phase.cuda()
@@ -181,10 +223,9 @@ class D3qn:
 						batch_actions = batch_actions.cuda()
 
 					q_theta_first_state = self.primary_model(batch_states_from, batch_states_from_phase) 
-					q_theta = self.primary_model(batch_states_to, batch_states_to_phase)
+					q_theta = self.primary_model(batch_states_to, batch_states_to_phase).detach().cpu()
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
-					_,argmax_actions = torch.max(q_theta, 1)
-					#argmax_actions = argmax_actions.long()
+					_,argmax_actions = torch.max(q_theta + illegal_costs, 1)
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
 					qprime_vals = qprime_vals.view(-1)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
