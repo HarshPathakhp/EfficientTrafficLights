@@ -3,6 +3,8 @@
 Results/*
 Results/
 Results_fixed/
+./Results/*
+/Results/*
 ./Results/
 ./Results_fixed/
 Results_dqn/*

@@ -197,9 +197,10 @@ class Dqn:
 					q_theta = self.model(batch_states_from, batch_states_from_phase)
 					q_theta_prime = self.model(batch_states_to, batch_states_to_phase)
 					q_theta_prime = Variable(q_theta_prime.detach(), requires_grad = False)
-					maxv, _ = torch.max(q_theta_prime + illegal_costs, 1)
 					if(self.use_cuda):
-						maxv = maxv.cuda()
+						q_theta_prime = q_theta_prime.cuda()
+						illegal_costs = illegal_costs.cuda()
+					maxv, _ = torch.max(q_theta_prime + illegal_costs, 1)
 					
 					qtarget = batch_stepreward + self.discount_factor * maxv
 					q_s_a = q_theta.gather(1, batch_actions.view(-1,1))
