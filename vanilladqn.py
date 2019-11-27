@@ -24,7 +24,7 @@ NUM_ACTIONS = 9
 PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
 BUFFER_SIZE = 20000
-EPSILON = 0.4
+EPSILON = 0.7
 REWARD_NORM = 1e5
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
@@ -63,7 +63,7 @@ class Dqn:
 		if(self.use_cuda):
 			self.model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-3)
+		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-2)
 		
 		self.writer = open("./Results/dqn_status.txt", "w")
 		self.episode_writer = open("./Results/dqn_episode.txt", "w")
