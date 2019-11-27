@@ -18,7 +18,7 @@ from tqdm import tqdm
 from env import MAX_REWARD
 
 STOP_TIME = 10000
-START_GREEN = 20
+START_GREEN = 10
 YELLOW = 3
 NUM_ACTIONS = 9
 REWARD_NORM = 1e5
@@ -227,6 +227,8 @@ class D3qn:
 					q_theta = self.primary_model(batch_states_to, batch_states_to_phase).detach().cpu()
 					q_theta_prime = self.target_model(batch_states_to, batch_states_to_phase)
 					_,argmax_actions = torch.max(q_theta + illegal_costs, 1)
+					if(self.use_cuda):
+						argmax_actions = argmax_actions.cuda()
 					qprime_vals = q_theta_prime.gather(1, argmax_actions.view(-1,1))
 					qprime_vals = qprime_vals.view(-1)
 					qtarget = self.discount_factor * qprime_vals + batch_stepreward
