@@ -137,6 +137,7 @@ class SumoIntersection:
             to_update_wait_map[veh] = traci.vehicle.getAccumulatedWaitingTime(veh)
         return to_update_wait_map
     
+import random
 if __name__ == "__main__":
     si = SumoIntersection("./2way-single-intersection/single-intersection.net.xml", "./2way-single-intersection/single-intersection-vhvh.rou.xml", phases=[
                                         traci.trafficlight.Phase(32, "GGrrrrGGrrrr"),  
@@ -147,16 +148,31 @@ if __name__ == "__main__":
                                         traci.trafficlight.Phase(2, "rrryyrrrryyr"),
                                        traci.trafficlight.Phase(32, "rrrrrGrrrrrG"), 
                                         traci.trafficlight.Phase(2, "rrrrryrrrrry")
-                                        ], use_gui=False)
+                                        ], use_gui=True)
 
     #HOW TO RUN
-    state_1 = si.reset()
-    r = []
-    for i in range(20):
-        state_2, r1 = si.take_action([10,10,10,10])
-        r.append(r1)
-    print(r)
-    traci.close()
+    f = open("blah.txt", "w")
+    f2 = open("oops.txt", "w")
+    times = [5*i for i in range(1,13)]
+
+    eps = 100
+    for e in range(eps):
+        state_1 = si.reset()
+        sum = 0
+        f.write("-" * 50 + "\n")
+        while(si.time <= 99999):
+            action = [random.choice(times) for i in range(4)]
+            action = [1,1,1,1]
+            next_state, reward = si.take_action(action)
+            f.write(str(reward) + " " + str(action) + "\n")
+            sum += reward
+            f.close()
+            f = open("blah.txt", "a")
+        f2.write(str(sum) + " " + str(si.num_vehicles) + "\n")
+        f2.close()
+        f2 = open("oops.txt", "a")
+        traci.close()
+
     #state_2 = si.reset()
     #for i in range(100):
     #    for j in range(100):
