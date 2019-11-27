@@ -86,7 +86,7 @@ class D3qn:
 			self.primary_model.cuda()
 			self.target_model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-3)
+		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-2)
 		self.writer = open("./Results/3dqn_status.txt", "w")
 		self.episode_writer = open("./Results/3dqn_episode.txt", "w")
 		self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "w")
