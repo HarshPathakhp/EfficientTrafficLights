@@ -15,6 +15,8 @@ import numpy as np
 import os
 import sys
 from tqdm import tqdm
+from env import MAX_REWARD
+
 STOP_TIME = 10000
 START_GREEN = 20
 YELLOW = 3
@@ -138,7 +140,7 @@ class D3qn:
 				new_phases = self.get_phase_durations(action_id, cur_action_phase)
 				new_state, reward = self.env.take_action(new_phases)
 				reward_sum += reward
-				if(reward != (int)(-1e6)):
+				if(reward != (int)(-MAX_REWARD)):
 					wait_sum += (-1 * reward)
 				reward /= REWARD_NORM
 				#self.writer.write(str(new_phases) + " " + str(reward) + "\n")
@@ -212,9 +214,12 @@ class D3qn:
 if __name__ == "__main__":
 	os.system("rm -rf Gradients")
 	os.makedirs("Gradients")
-	os.system("rm -rf Results")
-	os.makedirs("./Results")
-	d3qn = D3qn(use_cuda = False, use_priorities = False)
+	# os.system("rm -rf Results")
+	try:
+		os.makedirs("./Results")
+	except:
+		pass
+	d3qn = D3qn(use_cuda = True, use_priorities = False)
 	d3qn.train()
 
 

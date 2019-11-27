@@ -63,9 +63,9 @@ class Dqn:
 		self.criterion = nn.MSELoss()
 		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-4)
 		
-		self.writer = open("./Results_dqn/dqn_status.txt", "w")
-		self.episode_writer = open("./Results_dqn/dqn_episode.txt", "w")
-		self.epsilon_writer = open("./Results_dqn/dqn_epsilon.txt", "w")
+		self.writer = open("./Results/dqn_status.txt", "w")
+		self.episode_writer = open("./Results/dqn_episode.txt", "w")
+		self.epsilon_writer = open("./Results/dqn_epsilon.txt", "w")
 	
 	def get_phase_durations(self, action_id, current_duration):
 		ret_phases = [i for i in current_duration]
@@ -166,19 +166,22 @@ class Dqn:
 				
 					self.writer.close()
 					self.epsilon_writer.close()
-					self.writer = open("./Results_dqn/dqn_status.txt", "a")
-					self.epsilon_writer = open("./Results_dqn/dqn_epsilon.txt", "a")
+					self.writer = open("./Results/dqn_status.txt", "a")
+					self.epsilon_writer = open("./Results/dqn_epsilon.txt", "a")
 		
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
-			self.episode_writer = open("./Results_dqn/dqn_episode.txt", "a")
+			self.episode_writer = open("./Results/dqn_episode.txt", "a")
 			traci.close()
 
 if __name__ == "__main__":
-	os.system("rm -rf Results_dqn")
-	os.makedirs("./Results_dqn")
-	dqn = Dqn(use_cuda = False, use_priorities = False)
+	#os.system("rm -rf Results_dqn")
+	try:
+		os.makedirs("./Results")
+	except:
+		pass
+	dqn = Dqn(use_cuda = True, use_priorities = False)
 	dqn.train()
 

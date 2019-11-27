@@ -1,4 +1,6 @@
 import os, sys
+MAX_REWARD = 1e5
+
 if 'SUMO_HOME' in os.environ:
     tools = os.path.join(os.environ['SUMO_HOME'], 'tools')
     sys.path.append(tools)
@@ -100,7 +102,7 @@ class SumoIntersection:
         sum = 0
         for i in phase_durations:
             if(not (i > 0 and i <= 60)):
-                return self._compute_observation(), (int)(-1e6)
+                return self._compute_observation(), (int)(-MAX_REWARD)
         for i in phase_durations:
             sum += i + self.yellow_time
         traci.trafficlight.setPhase(self.ts_ids[0], 0)
