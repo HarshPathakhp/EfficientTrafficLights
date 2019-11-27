@@ -213,14 +213,15 @@ class Dqn:
 					self.epsilon_writer.close()
 					self.writer = open("./Results/dqn_status.txt", "a")
 					self.epsilon_writer = open("./Results/dqn_epsilon.txt", "a")
+					self.debug_writer.close()
+					self.debug_writer = open("./Results/debug_dqn.txt", "a")
+			
 		
 			wait_sum /= self.env.num_vehicles
 			print(self.env.num_vehicles)
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
-			self.debug_writer.close()
 			self.episode_writer = open("./Results/dqn_episode.txt", "a")
-			self.debug_writer = open("./Results/debug_dqn.txt", "a")
 			traci.close()
 
 
