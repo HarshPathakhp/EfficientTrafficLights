@@ -32,7 +32,7 @@ class FixedBaseline():
 				new_state, reward = self.env.take_action(self.phases)
 				reward_sum += reward
 				wait_sum += -1*reward if (reward != int(-1e6)) else 0
-			wait_sum /= self.env.num_vehicles
+			wait_sum /= self.env.time
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/fixed" + str(self.time1) + "_" + str(self.time2) + "_" + str(self.time3) + "_" + str(self.time4) + "_episode.txt", "a")

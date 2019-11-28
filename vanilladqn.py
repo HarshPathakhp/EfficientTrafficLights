@@ -63,7 +63,7 @@ class Dqn:
 		if(self.use_cuda):
 			self.model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-2)
+		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-3)
 		
 		self.writer = open("./Results/dqn_status.txt", "w")
 		self.episode_writer = open("./Results/dqn_episode.txt", "w")
@@ -219,8 +219,7 @@ class Dqn:
 					self.debug_writer = open("./Results/debug_dqn.txt", "a")
 			
 		
-			wait_sum /= self.env.num_vehicles
-			print(self.env.num_vehicles)
+			wait_sum /= self.env.time
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/dqn_episode.txt", "a")

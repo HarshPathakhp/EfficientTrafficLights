@@ -86,7 +86,7 @@ class D3qn:
 			self.primary_model.cuda()
 			self.target_model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-2)
+		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-3)
 		self.writer = open("./Results/3dqn_status.txt", "w")
 		self.episode_writer = open("./Results/3dqn_episode.txt", "w")
 		self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "w")
@@ -248,8 +248,7 @@ class D3qn:
 				self.debug_writer.close()
 				self.debug_writer = open("./Results/debug.txt", "a")
 		
-			wait_sum /= self.env.num_vehicles
-			print(self.env.num_vehicles)
+			wait_sum /= self.env.time
 			self.episode_writer.write("EPISODE " + str(eps) + ": " + "TOTAL REWARD: " + str(reward_sum) + ", AVGWAITTIME: " + str(wait_sum) + "\n")
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/3dqn_episode.txt", "a")
