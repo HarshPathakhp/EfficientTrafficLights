@@ -18,7 +18,7 @@ import sys
 from tqdm import tqdm
 from env import MAX_REWARD
 STOP_TIME = 10000
-START_GREEN = 10
+START_GREEN = 30
 YELLOW = 3
 NUM_ACTIONS = 9
 PRETRAIN_STEPS = 100

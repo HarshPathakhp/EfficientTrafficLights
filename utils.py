@@ -139,7 +139,7 @@ class PriorityBuffer:
 
 
 class EpsilonPolicy:
-    def __init__(self, start_eps = 1, decay = 0.000005, min_epsilon = 0.01):
+    def __init__(self, start_eps = 1, decay = 0.000008, min_epsilon = 0.01):
         self.eps = start_eps
         self.decay = decay
         self.min_epsilon = min_epsilon
