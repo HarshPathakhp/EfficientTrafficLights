@@ -24,7 +24,7 @@ NUM_ACTIONS = 9
 PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
 BUFFER_SIZE = 20000
-EPSILON = 0.7
+EPSILON = 1
 REWARD_NORM = 1e5
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
