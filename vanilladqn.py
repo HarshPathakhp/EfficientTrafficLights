@@ -17,7 +17,7 @@ import os
 import sys
 from tqdm import tqdm
 from env import MAX_REWARD
-STOP_TIME = 10000
+STOP_TIME = 4000
 START_GREEN = 30
 YELLOW = 3
 NUM_ACTIONS = 9
@@ -26,6 +26,7 @@ BATCH_SIZE = 128
 BUFFER_SIZE = 20000
 EPSILON = 1
 REWARD_NORM = 1e5
+LEARNING_RATE = 1e-4
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -63,7 +64,7 @@ class Dqn:
 		if(self.use_cuda):
 			self.model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.model.parameters(), lr = 1e-3)
+		self.optimizer = optim.Adam(self.model.parameters(), lr = LEARNING_RATE)
 		
 		self.writer = open("./Results/dqn_status.txt", "w")
 		self.episode_writer = open("./Results/dqn_episode.txt", "w")
