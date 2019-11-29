@@ -25,6 +25,7 @@ REWARD_NORM = 1e5
 PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
 BUFFER_SIZE = 20000
+LEARNING_RATE = 1e-4
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
 				<t1-5,t2,t3,t4> 1
@@ -86,7 +87,7 @@ class D3qn:
 			self.primary_model.cuda()
 			self.target_model.cuda()
 		self.criterion = nn.MSELoss()
-		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = 1e-3)
+		self.optimizer = optim.Adam(self.primary_model.parameters(), lr = LEARNING_RATE)
 		self.writer = open("./Results/3dqn_status.txt", "w")
 		self.episode_writer = open("./Results/3dqn_episode.txt", "w")
 		self.epsilon_writer = open("./Results/3dqn_epsilon.txt", "w")
