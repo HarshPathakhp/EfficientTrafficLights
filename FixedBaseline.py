@@ -3,7 +3,7 @@ from env import SumoIntersection
 import os
 import traci
 YELLOW = 3
-STOP_TIME = 10000
+STOP_TIME = 4000
 class FixedBaseline():
 	def __init__(self, num_eps = 1000, ph1 = 10, ph2 = 10, ph3 = 10, ph4 = 10):
 		self.time1 = ph1
