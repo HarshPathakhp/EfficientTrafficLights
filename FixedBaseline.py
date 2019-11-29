@@ -43,7 +43,7 @@ if __name__ == "__main__":
 		os.makedirs("./Results")
 	except:
 		pass
-	fx = FixedBaseline(ph1 = 30, ph2 = 30, ph3 = 30, ph4 = 30)
-	fx.run()
-	fx2 = FixedBaseline(ph1 = 40, ph2 = 40, ph3 = 40, ph4 = 40)
-	fx2.run()
+	list = [5, 15, 30, 45, 60]
+	for i in list:
+		fx = FixedBaseline(ph1 = i, ph2 = i, ph3 = i, ph4 = i)
+		fx.run()
