@@ -49,13 +49,62 @@ class Buffer:
         return len(self.datalist)     
 
 class PriorityBuffer:
-    def __init__(self, max_size = 50000, batch_size = 16, discount_factor = 0.99, use_cuda = False):
+    def __init__(self, max_size = 50000, topk = 20, batch_size = 16, discount_factor = 0.99, use_cuda = False, num_actions = 9):
         self.datalist = []
+        self.tderrors = []
         self.max_size = max_size
         self.batch_size = batch_size
         self.discount_factor = discount_factor
         self.use_cuda = use_cuda
-    def add(self, sample):
+        self.topk = topk
+        self.num_actions = num_actions
+    def get_phase_durations(self, action_id, current_duration):
+        ret_phases = [i for i in current_duration]
+        if(action_id == 1):
+            ret_phases[0] -= 5
+        elif(action_id == 2):
+            ret_phases[1] -= 5
+        elif action_id == 3:
+            ret_phases[2] -= 5
+        elif action_id == 4:
+            ret_phases[3] -= 5
+        elif action_id == 5:
+            ret_phases[0] += 5
+        elif action_id == 6:
+            ret_phases[1] += 5
+        elif action_id == 7:
+            ret_phases[2] += 5
+        elif action_id == 8:
+            ret_phases[3] += 5
+        return ret_phases
+
+    def fill_validmoves(self, cur_phase):
+        validmoves = [0 for i in range(self.num_actions)]
+        for action_id in range(self.num_actions):
+            new_phases = self.get_phase_durations(action_id, cur_phase)
+            flag = 0
+            for time in new_phases:
+                if(not(time >= 5 and time <= 60)):
+                    validmoves[action_id] = 0
+                    flag = 1
+                    break
+            if(flag == 0):
+                validmoves[action_id] = 1
+        return validmoves
+
+    def penalise_bad_moves(self, tensor_phase):
+        ret = np.zeros((self.num_actions))
+        cur_phase = tensor_phase[0].numpy().tolist()
+        valid_moves = self.fill_validmoves(cur_phase)
+        for j in range(len(valid_moves)):
+                if(valid_moves[j] == 1):
+                    valid_moves[j] = 0
+                else:
+                    valid_moves[j] = -99999
+        ret = np.array(valid_moves)
+        return torch.tensor(ret).float()
+
+    def add(self, sample, primary_net, target_net):
         """
         add <st,pt,at,st+1,pt+1,rt+1> to list
         """
@@ -68,7 +117,25 @@ class PriorityBuffer:
         action = torch.tensor(sample[2]).view(1).long()
         reward = torch.tensor(sample[5]).view(1).float()
         self.datalist.append((cur_state, cur_state_phase, action, next_state, next_state_phase, reward))
-    
+        illegal_costs = self.penalise_bad_moves(next_state_phase)        
+        if(self.use_cuda):
+                cur_state = cur_state.cuda()
+                cur_state_phase = cur_state_phase.cuda()
+                next_state = next_state.cuda()
+                next_state_phase = next_state_phase.cuda()
+                reward = reward.cuda()
+                action = action.cuda()
+                illegal_costs = illegal_costs.cuda()
+
+        best_action = torch.argmax(illegal_costs + primary_net(next_state, next_state_phase).view(-1)).item()
+        next_state_estimate = target_net(next_state, next_state_phase).view(-1)[best_action]
+        bootstrapped_output = reward + self.discount_factor * next_state_estimate 
+        target_output = primary_net(cur_state, cur_state_phase).view(-1)[action]
+            
+        error = torch.abs(bootstrapped_output - target_output).item()   
+        self.tderrors.append(error)
+        
+
     def sample(self, primary_net, target_net):
         """
         samples <batch_size> elements from minibatch
@@ -77,30 +144,33 @@ class PriorityBuffer:
         num_samples = len(self.datalist)
         use_cuda = self.use_cuda
 
-        td_error = []
-        for i in range(num_samples):
+        choose_indices = np.random.choice(num_samples, size = (min(self.topk, num_samples)))
+        for i in choose_indices:
             cur_state = self.datalist[i][0]
             cur_state_phase = self.datalist[i][1]
             action = self.datalist[i][2]
             next_state = self.datalist[i][3]
             next_state_phase = self.datalist[i][4]
             reward = self.datalist[i][5]
-
+            illegal_costs = self.penalise_bad_moves(next_state_phase)
             if(self.use_cuda):
                 cur_state = cur_state.cuda()
                 cur_state_phase = cur_state_phase.cuda()
                 next_state = next_state.cuda()
                 next_state_phase = next_state_phase.cuda()
                 reward = reward.cuda()
+                action = action.cuda()
+                illegal_costs = illegal_costs.cuda()
 
-            best_action = torch.argmax(primary_net(next_state, next_state_phase).view(-1)).item()
+            best_action = torch.argmax(illegal_costs + primary_net(next_state, next_state_phase).view(-1)).item()
             next_state_estimate = target_net(next_state, next_state_phase).view(-1)[best_action]
             bootstrapped_output = reward + self.discount_factor * next_state_estimate 
             target_output = primary_net(cur_state, cur_state_phase).view(-1)[action]
             
             error = torch.abs(bootstrapped_output - target_output).item()	
-            td_error.append([error, i])	
+            self.tderrors[i] = error	
 
+        td_error = [[self.tderrors[i], i] for i in range(num_samples)]
         td_error.sort()
         td_error.reverse()
         distribution = np.zeros(len(self.datalist)).astype(float)
@@ -131,6 +201,7 @@ class PriorityBuffer:
         batch_to_phase = torch.cat(batch_to_phase, 0) / 60.0
         batch_actions = torch.cat(batch_actions, 0)
         batch_reward = torch.cat(batch_reward, 0)
+
         return [batch_from, batch_from_phase, batch_actions, batch_to, batch_to_phase, batch_reward]
 
     def length(self):

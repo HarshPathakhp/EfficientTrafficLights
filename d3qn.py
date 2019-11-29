@@ -193,7 +193,10 @@ class D3qn:
 				if(flag == 1):
 					self.debug_writer("oops\n")
 					new_phases = cur_action_phase
-				self.replaybuffer.add((cur_state, cur_action_phase, new_actions[action_id], new_state, new_phases, reward))
+				if(not self.use_priorities):
+					self.replaybuffer.add((cur_state, cur_action_phase, new_actions[action_id], new_state, new_phases, reward))
+				else:
+					self.replaybuffer.add((cur_state, cur_action_phase, new_actions[action_id], new_state, new_phases, reward), self.primary_model, self.target_model)
 				cur_state = new_state
 				cur_action_phase = new_phases
 				if(self.replaybuffer.length() > BATCH_SIZE and total_steps > PRETRAIN_STEPS):
