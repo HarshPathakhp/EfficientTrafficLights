@@ -17,7 +17,7 @@ import sys
 from tqdm import tqdm
 from env import MAX_REWARD
 
-STOP_TIME = 10000
+STOP_TIME = 4000
 START_GREEN = 30
 YELLOW = 3
 NUM_ACTIONS = 9
@@ -253,7 +253,7 @@ class D3qn:
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/3dqn_episode.txt", "a")
 			traci.close()
-			
+			torch.save(self.primary_model.state_dict(), "./Results/network_d3qn.pth")	
 if __name__ == "__main__":
 	os.system("rm -rf Gradients")
 	os.makedirs("Gradients")
