@@ -18,13 +18,13 @@ from tqdm import tqdm
 from env import MAX_REWARD
 
 STOP_TIME = 4000
-START_GREEN = 30
+START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
 REWARD_NORM = 1e5
 PRETRAIN_STEPS = 100
 BATCH_SIZE = 128
-BUFFER_SIZE = 20000
+BUFFER_SIZE = 5000
 LEARNING_RATE = 1e-4
 """ Notation for actions ->
 <t1,t2,t3,t4> -> <t1,t2,t3,t4> 0
