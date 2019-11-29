@@ -254,7 +254,7 @@ class D3qn:
 			self.episode_writer.close()
 			self.episode_writer = open("./Results/3dqn_episode.txt", "a")
 			traci.close()
-			
+			torch.save(self.primary_model.state_dict(), "./Results/network_d3qn.pth")	
 if __name__ == "__main__":
 	os.system("rm -rf Gradients")
 	os.makedirs("Gradients")
