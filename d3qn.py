@@ -22,8 +22,8 @@ START_GREEN = 20
 YELLOW = 3
 NUM_ACTIONS = 9
 REWARD_NORM = 1e5
-PRETRAIN_STEPS = 3
-BATCH_SIZE = 3
+PRETRAIN_STEPS = 100
+BATCH_SIZE = 128
 BUFFER_SIZE = 5000
 LEARNING_RATE = 1e-4
 """ Notation for actions ->
@@ -267,7 +267,7 @@ if __name__ == "__main__":
 	except:
 		pass
 	gpu_avail = torch.cuda.is_available()
-	d3qn = D3qn(use_cuda = gpu_avail, use_priorities = True)
+	d3qn = D3qn(use_cuda = gpu_avail, use_priorities = False)
 	d3qn.train()
 
 
